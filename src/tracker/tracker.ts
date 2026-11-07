@@ -24,12 +24,64 @@ export type TrackerStatus =
   | { state: 'loading-model' }
   | { state: 'starting-camera' }
   | { state: 'running'; delegate: Delegate }
+  /** The tab is hidden: camera and detection are off until it is visible again. */
+  | { state: 'paused' }
+  /** Resuming after the tab became visible failed. */
+  | { state: 'error'; error: TrackerError }
   | { state: 'stopped' };
+
+export type TrackerErrorKind = 'denied' | 'no-camera' | 'in-use' | 'unsupported' | 'model-load-failed';
+
+/** Why the tracker could not start. `start()` rejects with this. */
+export class TrackerError extends Error {
+  constructor(
+    readonly kind: TrackerErrorKind,
+    options?: { cause?: unknown },
+  ) {
+    super(`Tracker failed: ${kind}`, options);
+    this.name = 'TrackerError';
+  }
+}
+
+/** Maps a getUserMedia rejection to a TrackerError kind. */
+function cameraErrorKind(err: unknown): TrackerErrorKind {
+  const name = err instanceof Error ? err.name : '';
+  switch (name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'denied';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'no-camera';
+    case 'TypeError':
+      return 'unsupported';
+    default:
+      // NotReadableError, AbortError and anything unknown: the hardware is there but unusable.
+      return 'in-use';
+  }
+}
+
+async function openCamera(): Promise<MediaStream> {
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    throw new TrackerError('unsupported');
+  }
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT, facingMode: 'user' },
+      audio: false,
+    });
+  } catch (err) {
+    throw new TrackerError(cameraErrorKind(err), { cause: err });
+  }
+}
 
 export type TrackerSource = 'camera';
 
 export interface Tracker {
-  /** Asks for the camera, loads the model and starts emitting frames. */
+  /**
+   * Asks for the camera, loads the model and starts emitting frames. Rejects with a TrackerError.
+   * While started, the camera is released when the tab is hidden and reopened when it is visible.
+   */
   start(): Promise<void>;
   /** Stops the camera and the detection loop. */
   stop(): void;
@@ -90,6 +142,8 @@ export function createTracker(_source: TrackerSource): Tracker {
   let rafId = 0;
   let lastVideoTime = -1;
   let lastTimestamp = 0;
+  // Bumped by stop() and on hide, so an in-flight run() knows it was cancelled.
+  let session = 0;
 
   const emitStatus = (status: TrackerStatus) => statusListeners.forEach((cb) => cb(status));
 
@@ -106,6 +160,63 @@ export function createTracker(_source: TrackerSource): Tracker {
     rafId = requestAnimationFrame(loop);
   };
 
+  const releaseCamera = () => {
+    session++;
+    running = false;
+    cancelAnimationFrame(rafId);
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
+    if (video) video.srcObject = null;
+  };
+
+  /** Opens the camera, loads the model if needed and starts the detection loop. */
+  const run = async () => {
+    const mine = ++session;
+    const cancelled = () => mine !== session;
+    emitStatus({ state: 'starting-camera' });
+    const opened = await openCamera();
+    if (cancelled()) {
+      opened.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    stream = opened;
+    video ??= document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    await video.play();
+    if (cancelled()) return;
+
+    if (!landmarker) {
+      emitStatus({ state: 'loading-model' });
+      try {
+        ({ landmarker, delegate } = await createLandmarker());
+      } catch (err) {
+        releaseCamera();
+        throw new TrackerError('model-load-failed', { cause: err });
+      }
+      if (cancelled()) return;
+    }
+
+    running = true;
+    lastVideoTime = -1;
+    emitStatus({ state: 'running', delegate });
+    rafId = requestAnimationFrame(loop);
+  };
+
+  const onVisibilityChange = () => {
+    if (document.hidden) {
+      releaseCamera();
+      emitStatus({ state: 'paused' });
+    } else if (!running) {
+      run().catch((err: unknown) => {
+        const error = err instanceof TrackerError ? err : new TrackerError('in-use', { cause: err });
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        emitStatus({ state: 'error', error });
+      });
+    }
+  };
+
   const tracker: Tracker = {
     get video() {
       return video;
@@ -113,32 +224,18 @@ export function createTracker(_source: TrackerSource): Tracker {
 
     async start() {
       if (running) return;
-      emitStatus({ state: 'starting-camera' });
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: VIDEO_WIDTH, height: VIDEO_HEIGHT, facingMode: 'user' },
-        audio: false,
-      });
-      video = document.createElement('video');
-      video.muted = true;
-      video.playsInline = true;
-      video.srcObject = stream;
-      await video.play();
-
-      emitStatus({ state: 'loading-model' });
-      if (!landmarker) ({ landmarker, delegate } = await createLandmarker());
-
-      running = true;
-      lastVideoTime = -1;
-      emitStatus({ state: 'running', delegate });
-      rafId = requestAnimationFrame(loop);
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      try {
+        await run();
+      } catch (err) {
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+        throw err;
+      }
     },
 
     stop() {
-      running = false;
-      cancelAnimationFrame(rafId);
-      stream?.getTracks().forEach((t) => t.stop());
-      stream = null;
-      if (video) video.srcObject = null;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      releaseCamera();
       emitStatus({ state: 'stopped' });
     },
 

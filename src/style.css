@@ -110,3 +110,49 @@ body {
 .live-status[hidden] {
   display: none;
 }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.actions .try-it {
+  margin-top: 0;
+}
+
+.secondary {
+  padding: 0.75rem 1.5rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.secondary:hover {
+  border-color: var(--fg);
+}
+
+.secondary:focus-visible {
+  outline: 3px solid var(--fg);
+  outline-offset: 3px;
+}
+
+.error-screen .pitch p {
+  margin: 0 0 0.75rem;
+}
+
+.stage-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: rgba(14, 17, 22, 0.8);
+}
+
+.mouse-stage {
+  background: #161b22;
+}

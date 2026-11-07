@@ -11,7 +11,7 @@ prd: §4.1 tracker (TrackerError), §4.6 app, user stories 12–13
 - When the tab is hidden, stop the tracks and detection. When it's visible again, resume.
 
 ## Acceptance criteria
-- [ ] Unit tests with a mocked `getUserMedia` cover every error mapping.
+- [x] Unit tests with a mocked `getUserMedia` cover every error mapping.
 - [ ] Manual check: blocking the camera in site settings shows the denied screen; Use mouse instead works.
 - [ ] Stop camera turns off the camera light. Switching tabs and back resumes tracking.
-- [ ] Tests, typecheck and build pass.
+- [x] Tests, typecheck and build pass.

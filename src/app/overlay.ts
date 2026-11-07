@@ -43,16 +43,27 @@ export interface LiveView {
   setStatus(text: string): void;
 }
 
+export interface LiveViewOptions {
+  /** Called when the visitor clicks "Stop camera". */
+  onStop: () => void;
+}
+
 /** Renders the live view into `root`, replacing its contents. */
-export function renderLiveView(root: HTMLElement, video: () => HTMLVideoElement | null): LiveView {
+export function renderLiveView(
+  root: HTMLElement,
+  video: () => HTMLVideoElement | null,
+  { onStop }: LiveViewOptions,
+): LiveView {
   root.innerHTML = `
     <main class="live">
       <div class="stage">
         <canvas class="overlay" aria-label="Mirrored camera view with hand skeleton"></canvas>
         <p class="live-status" role="status"></p>
+        <button type="button" class="secondary stage-button stop-camera">Stop camera</button>
       </div>
     </main>
   `;
+  root.querySelector('.stop-camera')?.addEventListener('click', onStop);
   const canvas = root.querySelector<HTMLCanvasElement>('canvas.overlay')!;
   const statusEl = root.querySelector<HTMLParagraphElement>('.live-status')!;
   const ctx = canvas.getContext('2d');
@@ -108,4 +119,17 @@ export function renderLiveView(root: HTMLElement, video: () => HTMLVideoElement 
       ctx.fillText(label, 16, 29);
     },
   };
+}
+
+/** The app without a camera: an empty stage driven by the normal mouse pointer. */
+export function renderMouseStage(root: HTMLElement, { onExit }: { onExit: () => void }): void {
+  root.innerHTML = `
+    <main class="live">
+      <div class="stage mouse-stage">
+        <p class="live-status" role="status">Mouse mode: no camera in use.</p>
+        <button type="button" class="secondary stage-button back">Back</button>
+      </div>
+    </main>
+  `;
+  root.querySelector('.back')?.addEventListener('click', onExit);
 }
