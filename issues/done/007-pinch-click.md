@@ -20,7 +20,13 @@ prd: §4.2 classifier, §4.3 gestures, §4.4 input, §5 false-click defences
 - A temporary test button with a click counter on the stage.
 
 ## Acceptance criteria
-- [ ] TDD unit tests for the hysteresis thresholds, confirmation, cursor lock and cooldown.
-- [ ] Fixture tests: `pinch-twice` gives exactly 2 clicks; `fidget-10s` gives **0** clicks; `hand-leaves-mid-pinch` gives a `release` and no stuck press.
-- [ ] `input` tests (jsdom): gesture clicks and mouse clicks produce the same `Action`s; the virtual pointer clicks the button under the cursor.
+- [x] TDD unit tests for the hysteresis thresholds, confirmation, cursor lock and cooldown.
+- [x] Fixture tests: `pinch-twice` gives exactly 2 clicks; `fidget-10s` gives **0** clicks; `hand-leaves-mid-pinch` gives a `release` and no stuck press.
+- [x] `input` tests (jsdom): gesture clicks and mouse clicks produce the same `Action`s; the virtual pointer clicks the button under the cursor.
 - [ ] Manual check: you can pinch-click the counter button reliably, and the mouse still works.
+
+## Notes (done)
+- Pinch = thumb–index ratio below the close threshold AND the index finger extended (wrist→tip / wrist→PIP > 1.0). Without the index check, `fidget-10s` gave 3 false clicks (curled, bunched hand).
+- `fist-hold` still gives 1 click with the rules here; issue 009's fist pose must suppress it.
+- The cursor stays locked for the whole press. Air-draw (008) needs it to follow while held: unlock past a drag distance there.
+- Manual check (pinch-click the counter, mouse still works) is still to do by hand.

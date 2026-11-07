@@ -53,3 +53,37 @@ describe('renderLiveView cursor dot', () => {
     expect(dot.style.left).toBe('25%');
   });
 });
+
+describe('test click counter (issue 007)', () => {
+  const counter = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('.test-counter')!;
+
+  it('counts clicks on the live stage', () => {
+    const root = document.createElement('div');
+    const view = renderLiveView(root, () => null, { onStop: vi.fn() });
+    expect(view.stage.contains(counter(root))).toBe(true);
+    expect(counter(root).textContent).toBe('Clicked 0 times');
+    counter(root).click();
+    counter(root).click();
+    expect(counter(root).textContent).toBe('Clicked 2 times');
+  });
+
+  it('is on the mouse stage too', () => {
+    const root = document.createElement('div');
+    renderMouseStage(root, { onExit: vi.fn() });
+    counter(root).click();
+    expect(counter(root).textContent).toBe('Clicked 1 time');
+  });
+});
+
+describe('renderLiveView pinch ring', () => {
+  it('closes the ring with the pinch and marks the press', () => {
+    const root = document.createElement('div');
+    const view = renderLiveView(root, () => null, { onStop: vi.fn() });
+    const dot = root.querySelector<HTMLElement>('.cursor-dot')!;
+    view.setPinch(0.5, false);
+    expect(dot.style.getPropertyValue('--pinch')).toBe('0.5');
+    expect(dot.classList.contains('pressed')).toBe(false);
+    view.setPinch(1, true);
+    expect(dot.classList.contains('pressed')).toBe(true);
+  });
+});

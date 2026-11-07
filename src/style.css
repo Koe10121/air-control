@@ -131,6 +131,45 @@ body {
   opacity: 1;
 }
 
+/* Ring around the cursor that closes as the pinch closes (--pinch: 0 open → 1 pinched). */
+.cursor-ring {
+  position: absolute;
+  inset: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  opacity: calc(0.25 + 0.75 * var(--pinch, 0));
+  transform: scale(calc(1 - 0.55 * var(--pinch, 0)));
+  transition: transform 60ms linear;
+}
+
+.cursor-dot.pressed {
+  background: var(--fg);
+}
+
+.cursor-dot.pressed .cursor-ring {
+  border-color: var(--fg);
+}
+
+/* The element under the hand cursor (set by the input module's virtual pointer). */
+.hand-hover {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  filter: brightness(1.15);
+}
+
+/* Temporary (issue 007): a counter button to pinch-click. */
+.test-counter {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 1rem 2rem;
+  font-size: 1.25rem;
+}
+
 .live-status {
   position: absolute;
   inset: auto 0 1rem;

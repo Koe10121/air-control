@@ -3,6 +3,7 @@ import { renderErrorScreen } from './app/error-screen';
 import { renderLanding } from './app/landing';
 import { renderLiveView, renderMouseStage } from './app/overlay';
 import { createGestureEngine, DEFAULT_GESTURE_CONFIG } from './gestures/gestures';
+import { createInput } from './input/input';
 import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/fixture';
 import { createTracker, TrackerError, type Tracker, type TrackerErrorKind } from './tracker/tracker';
 
@@ -41,7 +42,9 @@ function runTracker(tracker: Tracker, stopLabel: string) {
       showLanding();
     },
   });
+  const input = createInput(view.stage);
   tracker.onStatus((status) => {
+    if (status.state === 'stopped' || status.state === 'error') input.destroy();
     if (status.state === 'starting-camera') view.setStatus('Waiting for camera permission…');
     else if (status.state === 'loading-model') view.setStatus('Loading hand model…');
     else if (status.state === 'running') view.setStatus('');
@@ -50,7 +53,10 @@ function runTracker(tracker: Tracker, stopLabel: string) {
   const gestures = createGestureEngine(DEFAULT_GESTURE_CONFIG);
   tracker.onFrame((frame) => {
     view.draw(frame);
-    view.setCursor(gestures.update(frame).cursor);
+    const out = gestures.update(frame);
+    view.setCursor(out.cursor);
+    view.setPinch(out.pinch, out.pressed);
+    input.push(out);
   });
   tracker.start().catch((err: unknown) => {
     console.error(err);

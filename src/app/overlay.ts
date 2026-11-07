@@ -44,6 +44,22 @@ export interface LiveView {
   setStatus(text: string): void;
   /** Moves the cursor dot to a normalised (0..1) stage position; null fades it out where it is. */
   setCursor(cursor: { x: number; y: number } | null): void;
+  /** Closes the ring around the cursor: 0 = open hand, 1 = fully pinched. `pressed` marks a press. */
+  setPinch(amount: number, pressed: boolean): void;
+  /** The stage element: the root for input and hit-testing. */
+  readonly stage: HTMLElement;
+}
+
+const TEST_COUNTER = '<button type="button" class="test-counter">Clicked 0 times</button>';
+
+/** Temporary (issue 007): a button that counts its clicks, to try pinch-click on. */
+function wireTestCounter(root: HTMLElement) {
+  const button = root.querySelector<HTMLButtonElement>('.test-counter')!;
+  let count = 0;
+  button.addEventListener('click', () => {
+    count++;
+    button.textContent = `Clicked ${count} time${count === 1 ? '' : 's'}`;
+  });
 }
 
 export interface LiveViewOptions {
@@ -63,7 +79,8 @@ export function renderLiveView(
     <main class="live">
       <div class="stage">
         <canvas class="overlay" aria-label="Mirrored view with hand skeleton"></canvas>
-        <div class="cursor-dot" aria-hidden="true"></div>
+        ${TEST_COUNTER}
+        <div class="cursor-dot" aria-hidden="true"><div class="cursor-ring"></div></div>
         <p class="live-status" role="status"></p>
         <button type="button" class="secondary stage-button stop-camera"></button>
       </div>
@@ -77,8 +94,16 @@ export function renderLiveView(
   const dot = root.querySelector<HTMLDivElement>('.cursor-dot')!;
   const ctx = canvas.getContext('2d');
   const fps = createFpsCounter();
+  wireTestCounter(root);
 
   return {
+    stage: root.querySelector<HTMLElement>('.stage')!,
+
+    setPinch(amount, pressed) {
+      dot.style.setProperty('--pinch', String(amount));
+      dot.classList.toggle('pressed', pressed);
+    },
+
     setStatus(text) {
       statusEl.textContent = text;
       statusEl.hidden = text === '';
@@ -149,9 +174,11 @@ export function renderMouseStage(root: HTMLElement, { onExit }: { onExit: () => 
     <main class="live">
       <div class="stage mouse-stage">
         <p class="live-status" role="status">Mouse mode: no camera in use.</p>
+        ${TEST_COUNTER}
         <button type="button" class="secondary stage-button back">Back</button>
       </div>
     </main>
   `;
+  wireTestCounter(root);
   root.querySelector('.back')?.addEventListener('click', onExit);
 }
