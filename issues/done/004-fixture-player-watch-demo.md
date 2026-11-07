@@ -16,5 +16,5 @@ prd: §4.1 (fixture source), §6 testing, user story 12
 ## Acceptance criteria
 - [x] Unit tests for the fixture player's timing and looping, using fake timers.
 - [x] `?source=fixture:synthetic-wave` shows a moving skeleton with no camera prompt.
-- [ ] The capture hotkey downloads a valid fixture file (manual check: needs a real camera).
+- [x] The capture hotkey downloads a valid fixture file (manual check).
 - [x] Playwright runs green locally (CI: verify on the next push).
