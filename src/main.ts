@@ -7,7 +7,7 @@ import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/
 import { createTracker, TrackerError, type Tracker, type TrackerErrorKind } from './tracker/tracker';
 
 /** The recording played by "Watch a demo". */
-const DEMO_FIXTURE = 'synthetic-wave';
+const DEMO_FIXTURE = 'demo-showcase';
 /** How much live tracking the dev capture hotkey (Shift+R) saves. */
 const CAPTURE_SECONDS = 10;
 const devTools = import.meta.env.DEV || new URLSearchParams(location.search).has('dev');

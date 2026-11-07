@@ -168,4 +168,22 @@ describe('bundled fixtures', () => {
     const tipX = wave.frames.map((f) => f.landmarks[12]!.x);
     expect(Math.max(...tipX) - Math.min(...tipX)).toBeGreaterThan(0.1);
   });
+
+  // Real recordings from issue 005. A long no-hand gap means the capture window reached back into
+  // the previous take, so the recording should have been trimmed.
+  it.each([
+    'pinch-twice',
+    'swipe-left',
+    'swipe-right',
+    'fidget-10s',
+    'hand-leaves-mid-pinch',
+    'open-palm-hold',
+    'fist-hold',
+    'demo-showcase',
+  ])('%s is valid, named after its file, and has no gap over 1.2 s', (name) => {
+    const fx = parseFixture(JSON.parse(readFileSync(`public/fixtures/${name}.json`, 'utf8')));
+    expect(fx.name).toBe(name);
+    const gaps = fx.frames.slice(1).map((f, i) => f.timestamp - fx.frames[i]!.timestamp);
+    expect(Math.max(0, ...gaps)).toBeLessThan(1200);
+  });
 });
