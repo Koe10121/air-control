@@ -12,6 +12,6 @@ prd: §4.3 gestures, §5 (One Euro, 70% mapping, mirroring)
 - Draw a cursor dot on the page that follows the finger.
 
 ## Acceptance criteria
-- [ ] TDD unit tests: the One Euro filter (steady input gives steady output; a step input converges), mapping and clamping, mirroring, and reset on `null`.
-- [ ] A fixture test: replaying `synthetic-wave` gives a cursor inside [0,1] for every frame with no NaN.
+- [x] TDD unit tests: the One Euro filter (steady input gives steady output; a step input converges), mapping and clamping, mirroring, and reset on `null`.
+- [x] A fixture test: replaying `synthetic-wave` gives a cursor inside [0,1] for every frame with no NaN.
 - [ ] Manual check: the dot follows the finger smoothly, and corners are reachable without the hand leaving the frame.

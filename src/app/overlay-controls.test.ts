@@ -34,3 +34,22 @@ describe('renderMouseStage', () => {
     expect(onExit).toHaveBeenCalledOnce();
   });
 });
+
+describe('renderLiveView cursor dot', () => {
+  it('positions the dot from a normalised cursor and fades it out (keeping its last spot) when the hand is lost', () => {
+    const root = document.createElement('div');
+    const view = renderLiveView(root, () => null, { onStop: vi.fn() });
+    const dot = root.querySelector<HTMLElement>('.cursor-dot')!;
+    expect(dot).not.toBeNull();
+    expect(dot.classList.contains('visible')).toBe(false);
+
+    view.setCursor({ x: 0.25, y: 0.75 });
+    expect(dot.classList.contains('visible')).toBe(true);
+    expect(dot.style.left).toBe('25%');
+    expect(dot.style.top).toBe('75%');
+
+    view.setCursor(null);
+    expect(dot.classList.contains('visible')).toBe(false);
+    expect(dot.style.left).toBe('25%');
+  });
+});

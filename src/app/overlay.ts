@@ -42,6 +42,8 @@ export interface LiveView {
   draw(frame: HandFrame | null): void;
   /** Shows a status line (e.g. "Loading hand model…"); empty string hides it. */
   setStatus(text: string): void;
+  /** Moves the cursor dot to a normalised (0..1) stage position; null fades it out where it is. */
+  setCursor(cursor: { x: number; y: number } | null): void;
 }
 
 export interface LiveViewOptions {
@@ -61,6 +63,7 @@ export function renderLiveView(
     <main class="live">
       <div class="stage">
         <canvas class="overlay" aria-label="Mirrored view with hand skeleton"></canvas>
+        <div class="cursor-dot" aria-hidden="true"></div>
         <p class="live-status" role="status"></p>
         <button type="button" class="secondary stage-button stop-camera"></button>
       </div>
@@ -71,6 +74,7 @@ export function renderLiveView(
   stopButton.addEventListener('click', onStop);
   const canvas = root.querySelector<HTMLCanvasElement>('canvas.overlay')!;
   const statusEl = root.querySelector<HTMLParagraphElement>('.live-status')!;
+  const dot = root.querySelector<HTMLDivElement>('.cursor-dot')!;
   const ctx = canvas.getContext('2d');
   const fps = createFpsCounter();
 
@@ -78,6 +82,14 @@ export function renderLiveView(
     setStatus(text) {
       statusEl.textContent = text;
       statusEl.hidden = text === '';
+    },
+
+    setCursor(cursor) {
+      // The fade-out (about 300 ms) is a CSS transition on opacity; position is kept so it fades in place.
+      dot.classList.toggle('visible', cursor !== null);
+      if (!cursor) return;
+      dot.style.left = `${cursor.x * 100}%`;
+      dot.style.top = `${cursor.y * 100}%`;
     },
 
     draw(frame) {

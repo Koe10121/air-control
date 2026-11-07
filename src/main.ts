@@ -2,6 +2,7 @@ import './style.css';
 import { renderErrorScreen } from './app/error-screen';
 import { renderLanding } from './app/landing';
 import { renderLiveView, renderMouseStage } from './app/overlay';
+import { createGestureEngine, DEFAULT_GESTURE_CONFIG } from './gestures/gestures';
 import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/fixture';
 import { createTracker, TrackerError, type Tracker, type TrackerErrorKind } from './tracker/tracker';
 
@@ -46,7 +47,11 @@ function runTracker(tracker: Tracker, stopLabel: string) {
     else if (status.state === 'running') view.setStatus('');
     else if (status.state === 'error') showError(status.error.kind);
   });
-  tracker.onFrame((frame) => view.draw(frame));
+  const gestures = createGestureEngine(DEFAULT_GESTURE_CONFIG);
+  tracker.onFrame((frame) => {
+    view.draw(frame);
+    view.setCursor(gestures.update(frame).cursor);
+  });
   tracker.start().catch((err: unknown) => {
     console.error(err);
     showError(err instanceof TrackerError ? err.kind : 'model-load-failed');
