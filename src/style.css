@@ -71,3 +71,42 @@ body {
   font-size: 0.9rem;
   color: var(--muted);
 }
+
+.live {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.stage {
+  position: relative;
+  width: min(100%, calc((100vh - 2rem) * 4 / 3));
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.overlay {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.live-status {
+  position: absolute;
+  inset: auto 0 1rem;
+  margin: 0 auto;
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: rgba(14, 17, 22, 0.8);
+  color: var(--fg);
+}
+
+.live-status[hidden] {
+  display: none;
+}
