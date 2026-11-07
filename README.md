@@ -2,7 +2,7 @@
 
 Control a website with your hands through the webcam: point to move, pinch to click, swipe to go next. Runs 100% in the browser; video never leaves your device.
 
-**Live:** _URL coming once deployed (issue 001)_
+**Live:** https://air-control-koee.vercel.app/
 
 ## Develop
 

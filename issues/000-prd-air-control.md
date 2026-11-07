@@ -161,7 +161,7 @@ tracker ──HandFrame──▶ gestures (uses classifier) ──GestureOutput�
 | Every failure screen offers "Use mouse instead" and "Watch a demo" (fixture playback). | Visitors without a usable camera still see the magic. It reuses the test fixtures. |
 | Detection runs separately from rendering. Adaptive quality is shown with a badge. The model download starts when "Try it" is hovered or clicked. | Degrade gracefully and visibly on slow devices. |
 | Dataset published in `training/data/` under CC BY 4.0 with a datasheet; anonymised IDs (`p01`, `p02`); landmarks only. | Makes the results reproducible from a clone. |
-| Hosting: free Vercel at `air-control.vercel.app`, falling back to `air-control-koe`. GitHub Actions runs CI. Vercel deploys from `main`. | Zero cost, public repo. |
+| Hosting: free Vercel at `air-control-koee.vercel.app`. GitHub Actions runs CI. Vercel deploys from `main`. | Zero cost, public repo. |
 | Build order (vertical slices): (1) tracer bullet: Try it → camera → skeleton + FPS → deployed, with error screens; (2) fixture player + "Watch a demo"; (3) cursor + pinch-click; (4) mode menu + Draw; (5) Slides; (6) Catch; (7) debug panel. That is a shippable rules-only demo. Then (8) recorder; (9) training + TypeScript inference + parity; (10) rules-vs-model toggle, eval, benchmark, README table; (11) polish: onboarding, adaptive performance, CSP, README GIF and diagram, portfolio case file. | Every slice is visible end to end. The demo exists before the ML work starts. |
 
 ## 6. Testing decisions
