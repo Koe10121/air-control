@@ -4,7 +4,7 @@ Recorded `HandFrame` streams (21 landmarks, handedness, timestamp; **no images**
 the same `Tracker` interface as the camera. Load any of them with `?source=fixture:<name>`.
 
 Real recordings: made on 2026-11-07 by the repo owner (one person, right hand), indoors, laptop
-webcam, with the dev capture hotkey (Shift+R, last 10 s). Lighting: _not noted; fill in_.
+webcam, with the dev capture hotkey (Shift+R, last 10 s). Lighting: indoor ceiling light.
 
 Frames where no hand was detected are not stored. So a gap in the timestamps means the hand was out of
 view, and the end of a file is the last frame the hand was seen. Where the 10 s window reached
