@@ -18,6 +18,17 @@ describe('renderLanding', () => {
     expect(root.textContent).toContain('Video never leaves your device.');
   });
 
+  it('has a Privacy note: processing stays in the browser, nothing is uploaded, and the CSP enforces it', () => {
+    const root = document.createElement('div');
+    renderLanding(root, { onTryIt: () => {} });
+
+    const note = root.querySelector('section[aria-labelledby="privacy-heading"]');
+    expect(note?.querySelector('h2')?.textContent).toBe('Privacy');
+    expect(note?.textContent).toContain('processed only in your browser');
+    expect(note?.textContent).toContain('Nothing is uploaded');
+    expect(note?.textContent).toContain('Content Security Policy');
+  });
+
   it('calls onTryIt when the button is clicked', () => {
     const root = document.createElement('div');
     const onTryIt = vi.fn();
