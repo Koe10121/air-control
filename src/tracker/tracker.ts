@@ -1,6 +1,7 @@
 // tracker: camera + MediaPipe Hand Landmarker → a stream of HandFrames (PRD §4.1).
 // MediaPipe is loaded lazily from self-hosted files under /mediapipe/, never from a CDN.
 import type { HandLandmarker } from '@mediapipe/tasks-vision';
+import { createFixtureTracker, type Fixture } from './fixture';
 
 export interface Landmark {
   x: number;
@@ -23,7 +24,8 @@ export type Delegate = 'GPU' | 'CPU';
 export type TrackerStatus =
   | { state: 'loading-model' }
   | { state: 'starting-camera' }
-  | { state: 'running'; delegate: Delegate }
+  /** `delegate` is 'fixture' when replaying a recording instead of running the model. */
+  | { state: 'running'; delegate: Delegate | 'fixture' }
   /** The tab is hidden: camera and detection are off until it is visible again. */
   | { state: 'paused' }
   /** Resuming after the tab became visible failed. */
@@ -75,7 +77,8 @@ async function openCamera(): Promise<MediaStream> {
   }
 }
 
-export type TrackerSource = 'camera';
+/** The live camera, or a recorded fixture replayed in a loop. */
+export type TrackerSource = 'camera' | { fixture: Fixture };
 
 export interface Tracker {
   /**
@@ -131,7 +134,11 @@ async function createLandmarker(): Promise<{ landmarker: HandLandmarker; delegat
   }
 }
 
-export function createTracker(_source: TrackerSource): Tracker {
+export function createTracker(source: TrackerSource): Tracker {
+  return source === 'camera' ? createCameraTracker() : createFixtureTracker(source.fixture);
+}
+
+function createCameraTracker(): Tracker {
   const frameListeners = new Set<(frame: HandFrame | null) => void>();
   const statusListeners = new Set<(status: TrackerStatus) => void>();
   let video: HTMLVideoElement | null = null;

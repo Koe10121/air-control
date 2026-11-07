@@ -13,6 +13,16 @@ describe('renderLiveView controls', () => {
   });
 });
 
+describe('renderLiveView in demo mode', () => {
+  it('labels the stop button with stopLabel', () => {
+    const root = document.createElement('div');
+    const onStop = vi.fn();
+    renderLiveView(root, () => null, { onStop, stopLabel: 'Stop demo' });
+    [...root.querySelectorAll('button')].find((b) => b.textContent === 'Stop demo')?.click();
+    expect(onStop).toHaveBeenCalledOnce();
+  });
+});
+
 describe('renderMouseStage', () => {
   it('shows an empty stage without a camera canvas, with a way back', () => {
     const root = document.createElement('div');

@@ -1,5 +1,6 @@
 // Live view: mirrored webcam video with the hand skeleton and a tracking-FPS counter on top.
-import type { HandFrame, Landmark } from '../tracker/tracker';
+// Without a video (fixture playback) the skeleton is drawn over a neutral background.
+import { VIDEO_HEIGHT, VIDEO_WIDTH, type HandFrame, type Landmark } from '../tracker/tracker';
 
 /** Bones between MediaPipe's 21 hand landmarks (wrist = 0, thumb 1–4, index 5–8, … pinky 17–20). */
 export const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
@@ -44,26 +45,30 @@ export interface LiveView {
 }
 
 export interface LiveViewOptions {
-  /** Called when the visitor clicks "Stop camera". */
+  /** Called when the visitor clicks the stop button. */
   onStop: () => void;
+  /** Stop button text; defaults to "Stop camera". */
+  stopLabel?: string;
 }
 
 /** Renders the live view into `root`, replacing its contents. */
 export function renderLiveView(
   root: HTMLElement,
   video: () => HTMLVideoElement | null,
-  { onStop }: LiveViewOptions,
+  { onStop, stopLabel = 'Stop camera' }: LiveViewOptions,
 ): LiveView {
   root.innerHTML = `
     <main class="live">
       <div class="stage">
-        <canvas class="overlay" aria-label="Mirrored camera view with hand skeleton"></canvas>
+        <canvas class="overlay" aria-label="Mirrored view with hand skeleton"></canvas>
         <p class="live-status" role="status"></p>
-        <button type="button" class="secondary stage-button stop-camera">Stop camera</button>
+        <button type="button" class="secondary stage-button stop-camera"></button>
       </div>
     </main>
   `;
-  root.querySelector('.stop-camera')?.addEventListener('click', onStop);
+  const stopButton = root.querySelector<HTMLButtonElement>('.stop-camera')!;
+  stopButton.textContent = stopLabel;
+  stopButton.addEventListener('click', onStop);
   const canvas = root.querySelector<HTMLCanvasElement>('canvas.overlay')!;
   const statusEl = root.querySelector<HTMLParagraphElement>('.live-status')!;
   const ctx = canvas.getContext('2d');
@@ -77,18 +82,23 @@ export function renderLiveView(
 
     draw(frame) {
       const v = video();
-      if (!ctx || !v || v.videoWidth === 0) return;
+      if (!ctx || (v && v.videoWidth === 0)) return;
       fps.tick(performance.now());
-      const w = v.videoWidth;
-      const h = v.videoHeight;
+      const w = v ? v.videoWidth : VIDEO_WIDTH;
+      const h = v ? v.videoHeight : VIDEO_HEIGHT;
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
 
-      ctx.save();
-      ctx.translate(w, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(v, 0, 0, w, h);
-      ctx.restore();
+      if (v) {
+        ctx.save();
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(v, 0, 0, w, h);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = '#1b2029';
+        ctx.fillRect(0, 0, w, h);
+      }
 
       if (frame) {
         const pts = frame.landmarks.map((p) => toCanvasPoint(p, w, h, true));

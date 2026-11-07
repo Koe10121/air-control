@@ -6,6 +6,8 @@ export interface ErrorScreenOptions {
   onUseMouse: () => void;
   /** Ask for the camera again. */
   onRetry: () => void;
+  /** Play a recorded hand instead of the camera. */
+  onWatchDemo: () => void;
 }
 
 const MESSAGES: Record<TrackerErrorKind, { title: string; body: string }> = {
@@ -44,9 +46,11 @@ export function renderErrorScreen(root: HTMLElement, kind: TrackerErrorKind, opt
       <div class="actions">
         <button type="button" class="try-it retry">Try again</button>
         <button type="button" class="secondary use-mouse">Use mouse instead</button>
+        <button type="button" class="secondary watch-demo">Watch a demo</button>
       </div>
     </main>
   `;
   root.querySelector('.retry')?.addEventListener('click', options.onRetry);
   root.querySelector('.use-mouse')?.addEventListener('click', options.onUseMouse);
+  root.querySelector('.watch-demo')?.addEventListener('click', options.onWatchDemo);
 }
