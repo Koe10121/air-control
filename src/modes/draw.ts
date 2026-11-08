@@ -55,6 +55,29 @@ export function drawReduce(state: DrawState, action: Action): DrawState {
   }
 }
 
+export type PathCommand =
+  | { op: 'dot' | 'move' | 'line'; x: number; y: number }
+  | { op: 'curve'; cx: number; cy: number; x: number; y: number };
+
+/**
+ * A smooth path through sampled points: straight to the first midpoint, then a quadratic curve
+ * through each midpoint with the sample as control point, then straight to the last point. Fast
+ * strokes are sampled sparsely; this turns their corners (and tracking-gap bridges) into curves.
+ */
+export function strokePath(points: ReadonlyArray<{ x: number; y: number }>): PathCommand[] {
+  const [first, ...rest] = points;
+  if (!first) return [];
+  if (rest.length === 0) return [{ op: 'dot', x: first.x, y: first.y }];
+  const last = points[points.length - 1]!;
+  const out: PathCommand[] = [{ op: 'move', x: first.x, y: first.y }];
+  if (points.length === 2) return [...out, { op: 'line', x: last.x, y: last.y }];
+  const mid = (i: number) => ({ x: (points[i]!.x + points[i + 1]!.x) / 2, y: (points[i]!.y + points[i + 1]!.y) / 2 });
+  out.push({ op: 'line', ...mid(0) });
+  for (let i = 1; i < points.length - 1; i++) out.push({ op: 'curve', cx: points[i]!.x, cy: points[i]!.y, ...mid(i) });
+  out.push({ op: 'line', x: last.x, y: last.y });
+  return out;
+}
+
 /** True if a stage point is over one of the mode's buttons, so pressing it shouldn't start a stroke. */
 function overControl(el: HTMLElement, x: number, y: number): boolean {
   const r = el.getBoundingClientRect();
@@ -82,14 +105,18 @@ export function createDrawMode(nav: Nav): Mode {
     ctx.lineJoin = 'round';
     ctx.lineWidth = Math.max(4, w / 120);
     for (const stroke of state.strokes) {
-      const [first, ...rest] = stroke.points;
-      if (!first) continue;
       ctx.strokeStyle = stroke.color;
       ctx.beginPath();
-      ctx.moveTo(first.x * w, first.y * h);
-      // A single point still shows as a dot.
-      if (rest.length === 0) ctx.lineTo(first.x * w + 0.01, first.y * h);
-      for (const p of rest) ctx.lineTo(p.x * w, p.y * h);
+      for (const c of strokePath(stroke.points)) {
+        if (c.op === 'move') ctx.moveTo(c.x * w, c.y * h);
+        else if (c.op === 'line') ctx.lineTo(c.x * w, c.y * h);
+        else if (c.op === 'curve') ctx.quadraticCurveTo(c.cx * w, c.cy * h, c.x * w, c.y * h);
+        else {
+          // A single point still shows as a dot.
+          ctx.moveTo(c.x * w, c.y * h);
+          ctx.lineTo(c.x * w + 0.01, c.y * h);
+        }
+      }
       ctx.stroke();
     }
   };

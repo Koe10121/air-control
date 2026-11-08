@@ -55,6 +55,12 @@ export interface GestureConfig extends OneEuroParams {
    * pinch into a drag: the cursor unlocks and follows the hand, and the release gives no click.
    */
   dragThreshold: number;
+  /**
+   * A pinch made while the cursor moves faster than this (screen widths per second) is a drag from the
+   * start: no lock, so a fast stroke doesn't begin with a jump back. Clicks press at ≈0.3–0.5,
+   * fast drawing at ≈1.3–2.5 (pinch-twice, draw-fast-2).
+   */
+  dragSpeed: number;
   /** How long a fist (→ clear) or a still open palm (→ pause) must be held. */
   holdMs: number;
   /** The open palm counts as still while its centre stays within this many palm sizes of where the hold began. */
@@ -86,6 +92,7 @@ export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
   clickCooldownMs: 300,
   // Recorded deliberate clicks (pinch-twice) drift up to ~0.06; revisit in issue 016.
   dragThreshold: 0.08,
+  dragSpeed: 0.9,
   holdMs: 1000,
   // open-palm-hold drifts ≈0.05 palm sizes once settled; fidget-10s's slow open-hand drift is ≈0.3 per second.
   stillRadius: 0.15,
@@ -186,12 +193,12 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
     return { gesture, progress: clamp01((t - holdStart) / config.holdMs) };
   };
 
-  /** The cursor as it was `lockLookbackMs` before `start` (or the oldest one we still have). */
-  const cursorBefore = (start: number): Cursor => {
+  /** The cursor sample from `lockLookbackMs` before `start` (or the oldest one we still have). */
+  const sampleBefore = (start: number) => {
     const target = start - config.lockLookbackMs;
     let best = history[0]!;
     for (const h of history) if (h.t <= target) best = h;
-    return best.cursor;
+    return best;
   };
 
   /** Forgets the hand entirely (as when it leaves view). Returns `release` if a press was open. */
@@ -275,7 +282,11 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
         if (closedFrames >= config.confirmFrames) {
           pressed = true;
           openSince = null;
-          locked = cursorBefore(closeStart);
+          const before = sampleBefore(closeStart);
+          const elapsed = (t - before.t) / 1000;
+          const speed = elapsed > 0 ? Math.hypot(smoothed.x - before.cursor.x, smoothed.y - before.cursor.y) / elapsed : 0;
+          dragging = speed > config.dragSpeed;
+          locked = dragging ? null : before.cursor;
           pressAt = smoothed;
           events.push('press');
         }

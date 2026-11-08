@@ -636,3 +636,68 @@ describe('createGestureEngine: draw-fast fixture', () => {
     expect(inLong / total).toBeGreaterThan(0.9);
   });
 });
+
+describe('createGestureEngine: pinching while moving fast', () => {
+  it('a pinch made while the hand sweeps fast is a drag from the start: no lock, no jump, no click', () => {
+    const f = feeder();
+    // About 1.5 screen widths per second (0.033 camera units per 33 ms frame ≈ 0.047 screen).
+    const x = (i: number) => 0.7 - i * 0.033;
+    for (let i = 0; i < 6; i++) f.step(OPEN, x(i));
+    const outs = [6, 7, 8].map((i) => f.step(CLOSED, x(i)));
+    expect(outs[2]!.events).toEqual(['press']);
+    const live = createGestureEngine(raw).update(hand(x(8), 0.5, OPEN, 0)).cursor!;
+    expect(outs[2]!.cursor!.x).toBeCloseTo(live.x, 6);
+    expect(f.step(CLOSED, x(9)).cursor!.x).toBeGreaterThan(outs[2]!.cursor!.x);
+    expect(f.step(OPEN, x(10)).events).toEqual(['release']);
+  });
+
+  it('a slow pinch still locks and clicks (the hand drifts as the thumb closes)', () => {
+    const f = feeder();
+    const x = (i: number) => 0.5 - i * 0.004; // ≈0.17 screens per second
+    for (let i = 0; i < 6; i++) f.step(OPEN, x(i));
+    [6, 7, 8].forEach((i) => f.step(CLOSED, x(i)));
+    expect(f.step(OPEN, x(9)).events).toEqual(['release', 'click']);
+  });
+
+  it('respects a configured drag speed', () => {
+    const f = feeder({ ...raw, dragSpeed: 100 });
+    const x = (i: number) => 0.7 - i * 0.033;
+    for (let i = 0; i < 6; i++) f.step(OPEN, x(i));
+    [6, 7, 8].forEach((i) => f.step(CLOSED, x(i)));
+    // Too slow for this threshold: locked at the earlier position, behind the hand.
+    const live = createGestureEngine(raw).update(hand(x(9), 0.5, OPEN, 0)).cursor!;
+    expect(live.x - f.step(CLOSED, x(9)).cursor!.x).toBeGreaterThan(0.05);
+  });
+});
+
+describe('createGestureEngine: draw-fast-2 fixture', () => {
+  it('fast drawing gives no accidental clicks and no jumps inside a stroke, except across tracking gaps', () => {
+    const { frames } = parseFixture(JSON.parse(readFileSync('public/fixtures/draw-fast-2.json', 'utf8')));
+    const engine = createGestureEngine(DEFAULT_GESTURE_CONFIG);
+    const events: string[] = [];
+    let jump = 0;
+    let last: Cursor | null = null;
+    let prev: HandFrame | null = null;
+    for (const frame of frames) {
+      let gap = false;
+      if (prev) {
+        for (let t = prev.timestamp + 33; t < frame.timestamp - 16; t += 33) {
+          events.push(...engine.update(null, t).events);
+          gap = true;
+        }
+      }
+      const out = engine.update(frame);
+      events.push(...out.events);
+      if (out.pressed && out.cursor && last && !gap && !out.events.includes('press')) {
+        jump = Math.max(jump, Math.hypot(out.cursor.x - last.x, out.cursor.y - last.y));
+      }
+      last = out.pressed ? out.cursor : null;
+      prev = frame;
+    }
+    expect(events.filter((e) => e === 'click')).toEqual([]);
+    expect(events.filter((e) => e === 'press').length).toBeGreaterThanOrEqual(6);
+    // Before dragSpeed, strokes began with jumps of up to 0.26. What is left is the unlock of a slow-start
+    // press once the hand passes dragThreshold (0.08), plus one frame of movement.
+    expect(jump).toBeLessThan(0.12);
+  });
+});

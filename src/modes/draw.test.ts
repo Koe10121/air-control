@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Action } from '../input/input';
-import { drawReduce, INITIAL_DRAW_STATE, PALETTE, type DrawState } from './draw';
+import { drawReduce, INITIAL_DRAW_STATE, PALETTE, strokePath, type DrawState } from './draw';
 
 const at = (type: 'pointer-move' | 'press' | 'release' | 'click', x: number, y: number): Action => ({
   type,
@@ -100,5 +100,37 @@ describe('drawReduce', () => {
     const snapshot = JSON.parse(JSON.stringify(before));
     run([at('pointer-move', 0.2, 0.2), at('release', 0.2, 0.2)], before);
     expect(before).toEqual(snapshot);
+  });
+});
+
+describe('strokePath', () => {
+  const pts = (...xy: number[]) => xy.reduce<{ x: number; y: number }[]>((a, v, i) => (i % 2 ? a : [...a, { x: v, y: xy[i + 1]! }]), []);
+
+  it('gives nothing for no points, and a dot for one', () => {
+    expect(strokePath([])).toEqual([]);
+    expect(strokePath(pts(1, 2))).toEqual([{ op: 'dot', x: 1, y: 2 }]);
+  });
+
+  it('draws two points as a straight line', () => {
+    expect(strokePath(pts(0, 0, 10, 0))).toEqual([
+      { op: 'move', x: 0, y: 0 },
+      { op: 'line', x: 10, y: 0 },
+    ]);
+  });
+
+  it('rounds corners: curves through each midpoint, using the sampled point as the control', () => {
+    expect(strokePath(pts(0, 0, 10, 0, 10, 10))).toEqual([
+      { op: 'move', x: 0, y: 0 },
+      { op: 'line', x: 5, y: 0 },
+      { op: 'curve', cx: 10, cy: 0, x: 10, y: 5 },
+      { op: 'line', x: 10, y: 10 },
+    ]);
+  });
+
+  it('starts and ends exactly on the first and last points', () => {
+    const path = strokePath(pts(0, 0, 3, 4, 6, 1, 9, 9, 12, 2));
+    expect(path[0]).toEqual({ op: 'move', x: 0, y: 0 });
+    expect(path.at(-1)).toEqual({ op: 'line', x: 12, y: 2 });
+    expect(path.filter((c) => c.op === 'curve')).toHaveLength(3);
   });
 });
