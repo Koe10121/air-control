@@ -124,7 +124,8 @@ function runTracker(tracker: Tracker, stopLabel: string) {
   tracker.onFrame((frame, { detectMs }) => {
     view.draw(frame);
     const gestureStart = performance.now();
-    const out = gestures.update(frame);
+    // No-hand frames carry no timestamp; give them the time so a press can ride out a short dropout.
+    const out = gestures.update(frame, frame ? undefined : performance.now());
     const gestureMs = performance.now() - gestureStart;
     debug.record({ detectMs, gestureMs, pose: out.pose, confidence: out.confidence, timestamp: frame?.timestamp ?? performance.now() });
     view.setCursor(out.cursor);

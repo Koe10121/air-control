@@ -115,7 +115,8 @@ export function createInput(root: HTMLElement, options: InputOptions = {}): Inpu
         }
         // Swipes map to next/prev in issue 010.
       }
-      if (!out.cursor) last = null;
+      // While a press rides out a dropout, keep its position for the release.
+      if (!out.cursor && !out.pressed) last = null;
     },
 
     onAction(cb) {

@@ -72,6 +72,16 @@ describe('createInput: one action stream', () => {
     expect(actions.at(-1)).toEqual({ type: 'release', x: 0.25, y: 0.5, source: 'gesture' });
   });
 
+  it('keeps the press position through a tracking dropout, so a later release still arrives', () => {
+    const { input, actions } = setup();
+    input.push(gesture(0.25, 0.5, ['press']));
+    // The engine keeps the press while the hand is briefly missing: no cursor, still pressed.
+    input.push({ ...gesture(null, 0), pressed: true });
+    input.push({ ...gesture(null, 0), pressed: true });
+    input.push(gesture(null, 0, ['release']));
+    expect(actions.at(-1)).toEqual({ type: 'release', x: 0.25, y: 0.5, source: 'gesture' });
+  });
+
   it('maps the arrow keys to next and prev', () => {
     const { actions } = setup();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));

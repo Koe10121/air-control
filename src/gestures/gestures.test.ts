@@ -11,8 +11,9 @@ const tipAt = (x: number, y: number, timestamp: number): HandFrame => ({
   timestamp,
 });
 
-// No smoothing to speak of: isolates mapping from filtering.
-const raw: GestureConfig = { ...DEFAULT_GESTURE_CONFIG, minCutoff: 1e9 };
+// No smoothing to speak of: isolates mapping from filtering. Instant release, so pinch tests can open
+// in one frame; the release grace has its own tests.
+const raw: GestureConfig = { ...DEFAULT_GESTURE_CONFIG, minCutoff: 1e9, releaseMs: 0 };
 
 describe('createGestureEngine: cursor mapping', () => {
   it('maps the centre of the frame to the centre of the screen', () => {
@@ -151,6 +152,12 @@ function feeder(config: GestureConfig = raw, classifier?: Parameters<typeof crea
     lose() {
       t += DT;
       return engine.update(null);
+    },
+    /** A no-hand frame that knows the time, like the live tracker's. */
+    loseAt() {
+      const out = engine.update(null, t);
+      t += DT;
+      return out;
     },
     wait(ms: number) {
       t += ms;
@@ -515,5 +522,117 @@ describe('createGestureEngine: hold fixtures', () => {
 
   it('pinch-twice still gives exactly its 2 clicks and no holds', () => {
     expect(replayAll('pinch-twice')).toEqual(['press', 'release', 'click', 'press', 'release', 'click']);
+  });
+});
+
+// ---- Fast drawing: release grace and lost-hand grace ----
+
+describe('createGestureEngine: release grace', () => {
+  const graced: GestureConfig = { ...raw, releaseMs: 80 };
+
+  it('a pinch that flickers open for under releaseMs stays pressed', () => {
+    const f = feeder(graced);
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
+    // Open at t = 132 and 165 (33 ms), closed again: under 80 ms.
+    expect([OPEN, OPEN, CLOSED, CLOSED].flatMap((r) => f.step(r).events)).toEqual([]);
+    expect(f.step(CLOSED).pressed).toBe(true);
+  });
+
+  it('releases (and clicks) once the pinch has been open for releaseMs', () => {
+    const f = feeder(graced);
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
+    // Open frames 0, 33, 66 ms: still pressed; 99 ms: released.
+    expect([OPEN, OPEN, OPEN].flatMap((r) => f.step(r).events)).toEqual([]);
+    expect(f.step(OPEN).events).toEqual(['release', 'click']);
+  });
+
+  it('a frame in the hysteresis band restarts the open count', () => {
+    const f = feeder(graced);
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
+    expect([OPEN, OPEN, 0.3, OPEN, OPEN].flatMap((r) => f.step(r).events)).toEqual([]);
+  });
+});
+
+describe('createGestureEngine: lost-hand grace', () => {
+  it('a press survives the hand vanishing for under lossGraceMs, and the stroke carries on', () => {
+    const f = feeder();
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
+    // 5 no-hand frames: 165 ms.
+    for (let i = 0; i < 5; i++) expect(f.loseAt()).toMatchObject({ cursor: null, events: [], pressed: true });
+    const back = f.step(CLOSED, 0.3);
+    expect(back.events).toEqual([]);
+    expect(back.pressed).toBe(true);
+    expect(f.step(OPEN, 0.3).events).toEqual(['release']); // moved past the drag threshold: a drag, no click
+  });
+
+  it('releases (no click) once the hand has been gone for longer than lossGraceMs', () => {
+    const f = feeder();
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
+    const events: string[] = [];
+    for (let i = 0; i < 10; i++) events.push(...f.loseAt().events);
+    expect(events).toEqual(['release']);
+    expect(f.loseAt().pressed).toBe(false);
+  });
+
+  it('a hand that comes back after too long a gap starts fresh: release first, then a new confirmation', () => {
+    const f = feeder();
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
+    f.loseAt();
+    f.wait(400);
+    expect(f.step(CLOSED).events).toEqual(['release']);
+    expect([CLOSED, CLOSED].flatMap((r) => f.step(r).events)).toEqual(['press']);
+  });
+
+  it('without a time, a no-hand frame releases at once (as before)', () => {
+    const f = feeder();
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
+    expect(f.lose().events).toEqual(['release']);
+  });
+
+  it('a lost hand with nothing pressed resets as before', () => {
+    const f = feeder();
+    f.step(OPEN);
+    expect(f.loseAt()).toEqual({ cursor: null, pose: 'none', confidence: 0, events: [], pinch: 0, pressed: false, hold: null });
+  });
+});
+
+describe('createGestureEngine: draw-fast fixture', () => {
+  /**
+   * Replays like the live camera: a timed no-hand frame every 33 ms wherever the hand was out of view,
+   * then no-hand frames for a second after the end. Returns each press→release as its cursor path.
+   */
+  function strokes(config = DEFAULT_GESTURE_CONFIG) {
+    const { frames } = parseFixture(JSON.parse(readFileSync('public/fixtures/draw-fast.json', 'utf8')));
+    const engine = createGestureEngine(config);
+    const out: Cursor[][] = [];
+    let current: Cursor[] | null = null;
+    const feed = (o: ReturnType<typeof engine.update>) => {
+      if (o.events.includes('press')) current = [];
+      if (current && o.cursor) current.push(o.cursor);
+      if (o.events.includes('release') && current) {
+        out.push(current);
+        current = null;
+      }
+    };
+    let prev: HandFrame | null = null;
+    for (const frame of frames) {
+      if (prev) for (let t = prev.timestamp + 33; t < frame.timestamp - 16; t += 33) feed(engine.update(null, t));
+      feed(engine.update(frame));
+      prev = frame;
+    }
+    for (let t = prev!.timestamp + 33; t < prev!.timestamp + 1000; t += 33) feed(engine.update(null, t));
+    return out;
+  }
+  const length = (s: Cursor[]) => s.slice(1).reduce((sum, c, i) => sum + Math.hypot(c.x - s[i]!.x, c.y - s[i]!.y), 0);
+
+  it('draws fast strokes as a few long lines, not a trail of dots', () => {
+    const before = strokes({ ...DEFAULT_GESTURE_CONFIG, releaseMs: 0, lossGraceMs: 0 });
+    const after = strokes();
+    // Without the graces, tracking dropouts and pinch flicker chop the drawing into many short pieces.
+    expect(before.length).toBeGreaterThan(after.length * 2);
+    // With them, nearly all the ink is in a few long strokes.
+    const total = after.reduce((s, st) => s + length(st), 0);
+    const inLong = after.filter((st) => length(st) > 0.3).reduce((s, st) => s + length(st), 0);
+    expect(inLong / total).toBeGreaterThan(0.9);
   });
 });

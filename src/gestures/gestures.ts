@@ -64,6 +64,13 @@ export interface GestureConfig extends OneEuroParams {
    * fist for a few frames) neither restarts it nor counts as letting go.
    */
   holdGraceMs: number;
+  /**
+   * A press ends only once the pinch has been open for this long. Fast moves blur the hand and the
+   * thumb–index distance spikes open for a frame or two, which chopped fast strokes into dots.
+   */
+  releaseMs: number;
+  /** A press survives the hand vanishing for up to this long (tracking dropouts during fast moves). */
+  lossGraceMs: number;
 }
 
 export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
@@ -84,6 +91,9 @@ export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
   stillRadius: 0.15,
   // fist-hold flickers to pinch for up to ≈75 ms at a time.
   holdGraceMs: 200,
+  // draw-fast: open flickers mid-stroke last up to ≈75 ms; tracking dropouts mostly 60–150 ms.
+  releaseMs: 80,
+  lossGraceMs: 250,
 };
 
 /** Pinch ratio of a relaxed, open pointing hand: the ring starts closing below this. */
@@ -92,8 +102,12 @@ const RING_OPEN_RATIO = 0.8;
 const HISTORY_MS = 500;
 
 export interface GestureEngine {
-  /** Feed one tracker frame (null = no hand). Call once per frame, in timestamp order. */
-  update(frame: HandFrame | null): GestureOutput;
+  /**
+   * Feed one tracker frame (null = no hand). Call once per frame, in timestamp order.
+   * For a null frame pass `now` (same clock as frame timestamps) so a press can ride out a short
+   * dropout; without it a null frame releases at once.
+   */
+  update(frame: HandFrame | null, now?: number): GestureOutput;
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -125,6 +139,11 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
   let pressAt: Cursor | null = null;
   let dragging = false;
   let lastClick = -Infinity;
+  /** When the pinch first read open during the current press (null while closed). */
+  let openSince: number | null = null;
+  /** Timestamp of the last frame with a hand, and whether the hand is missing (inside the loss grace). */
+  let lastSeen = -Infinity;
+  let missing = false;
   /** Recent filtered cursor positions, oldest first. */
   let history: { t: number; cursor: Cursor }[] = [];
 
@@ -175,21 +194,38 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
     return best.cursor;
   };
 
+  /** Forgets the hand entirely (as when it leaves view). Returns `release` if a press was open. */
+  function reset(): GestureEvent[] {
+    fx.reset();
+    fy.reset();
+    const events: GestureEvent[] = pressed ? ['release'] : [];
+    pressed = false;
+    closedFrames = 0;
+    locked = null;
+    pressAt = null;
+    dragging = false;
+    openSince = null;
+    missing = false;
+    history = [];
+    holdPose = null;
+    return events;
+  }
+
   return {
-    update(frame) {
+    update(frame, now) {
       if (!frame) {
-        fx.reset();
-        fy.reset();
-        const events: GestureEvent[] = pressed ? ['release'] : [];
-        pressed = false;
-        closedFrames = 0;
-        locked = null;
-        pressAt = null;
-        dragging = false;
-        history = [];
-        holdPose = null;
-        return { cursor: null, pose: 'none', confidence: 0, events, pinch: 0, pressed: false, hold: null };
+        if (pressed && now !== undefined && now - lastSeen <= config.lossGraceMs) {
+          // Keep the press through a short dropout; the cursor hides until the hand is back.
+          missing = true;
+          return { cursor: null, pose: 'none', confidence: 0, events: [], pinch: 1, pressed: true, hold: null };
+        }
+        return { cursor: null, pose: 'none', confidence: 0, events: reset(), pinch: 0, pressed: false, hold: null };
       }
+
+      // Back after too long a gap: end the old press, then treat this as a new hand.
+      const resumed: GestureEvent[] = missing && frame.timestamp - lastSeen > config.lossGraceMs ? reset() : [];
+      missing = false;
+      lastSeen = frame.timestamp;
 
       const t = frame.timestamp;
       const tip = frame.landmarks[INDEX_TIP]!;
@@ -201,15 +237,22 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
 
       const { label: pose, confidence } = classifier(frame.landmarks, frame.handedness);
       const ratio = pinchRatio(frame.landmarks);
-      const events: GestureEvent[] = [];
+      const events: GestureEvent[] = resumed;
       const hold = updateHold(pose, frame, events);
 
       if (pressed) {
-        if (!dragging && pressAt && Math.hypot(smoothed.x - pressAt.x, smoothed.y - pressAt.y) > config.dragThreshold) {
+        openSince = ratio > config.pinchOpen ? (openSince ?? t) : null;
+        // Only a move made while still pinched is a drag; the hand moving as the fingers open is part of the click.
+        if (
+          !dragging &&
+          openSince === null &&
+          pressAt &&
+          Math.hypot(smoothed.x - pressAt.x, smoothed.y - pressAt.y) > config.dragThreshold
+        ) {
           dragging = true;
           locked = null;
         }
-        if (ratio > config.pinchOpen) {
+        if (openSince !== null && t - openSince >= config.releaseMs) {
           const cursor = locked ?? smoothed;
           events.push(...(dragging ? (['release'] as const) : (['release', 'click'] as const)));
           if (!dragging) lastClick = t;
@@ -218,6 +261,7 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
           pressAt = null;
           dragging = false;
           closedFrames = 0;
+          openSince = null;
           return { cursor, pose, confidence, events, pinch: pinchProgress(ratio), pressed: false, hold };
         }
       } else if (
@@ -230,6 +274,7 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
         closedFrames++;
         if (closedFrames >= config.confirmFrames) {
           pressed = true;
+          openSince = null;
           locked = cursorBefore(closeStart);
           pressAt = smoothed;
           events.push('press');
