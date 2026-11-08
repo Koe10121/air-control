@@ -43,7 +43,7 @@ test('the mouse alone can open Draw, draw, change colour, clear and go back to t
   await openMouseStage(page);
   const menu = page.getByRole('navigation', { name: 'Modes' });
   await expect(menu.getByRole('button', { name: /slides/i })).not.toContainText(/coming soon/i);
-  await expect(menu.getByRole('button', { name: /catch.*coming soon/i })).toBeVisible();
+  await expect(menu.getByRole('button', { name: /catch/i })).not.toContainText(/coming soon/i);
 
   await menu.getByRole('button', { name: /draw/i }).click();
   await expect(page).toHaveURL(/[?&]mode=draw/);
@@ -126,4 +126,38 @@ test('Slides: the arrow keys move through every slide and stop at the ends', asy
 test('?mode=slides opens Slides directly', async ({ page }) => {
   await page.goto('/?source=fixture:synthetic-wave&mode=slides');
   await expect(page.getByRole('region', { name: 'Slides' })).toBeVisible();
+});
+
+test('Catch: a mouse-only game starts, runs, pauses with Space, ends and shows the score', async ({ page }) => {
+  await page.clock.install();
+  await openMouseStage(page);
+  await page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: /catch/i }).click();
+  await expect(page).toHaveURL(/[?&]mode=catch/);
+  const game = page.getByRole('region', { name: 'Catch' });
+  await expect(game).toHaveAttribute('data-phase', 'ready');
+
+  await game.getByRole('button', { name: 'Start' }).click();
+  await expect(game).toHaveAttribute('data-phase', 'playing');
+  const box = (await page.locator('canvas.catch-canvas').boundingBox())!;
+  for (let i = 0; i <= 10; i++) await page.mouse.move(box.x + (box.width * i) / 10, box.y + box.height * 0.8);
+  await page.clock.runFor(10_000);
+  const time = game.locator('.catch-time');
+  await expect(time).toHaveText('20 s');
+
+  await page.keyboard.press(' ');
+  await expect(game).toHaveAttribute('data-phase', 'paused');
+  await page.clock.runFor(5_000);
+  await expect(time).toHaveText('20 s');
+  await page.keyboard.press(' ');
+  await expect(game).toHaveAttribute('data-phase', 'playing');
+
+  await page.clock.runFor(21_000);
+  await expect(game).toHaveAttribute('data-phase', 'over');
+  const score = await game.getAttribute('data-score');
+  await expect(game.getByRole('heading', { name: `Score: ${score}` })).toBeVisible();
+  await expect(game.getByRole('button', { name: 'Play again' })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('air-control:catch-best'))).toBe(score);
+
+  await game.getByRole('button', { name: 'Play again' }).click();
+  await expect(game).toHaveAttribute('data-phase', 'playing');
 });

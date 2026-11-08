@@ -5,9 +5,10 @@ import { renderLiveView, renderMouseStage } from './app/overlay';
 import { createDebugPanel } from './debug/panel';
 import { createGestureEngine, DEFAULT_GESTURE_CONFIG } from './gestures/gestures';
 import { createInput, type Input } from './input/input';
+import { createCatchMode } from './modes/catch';
 import { createDrawMode } from './modes/draw';
 import { createSlidesMode } from './modes/slides';
-import { createComingSoonMode, createMenuMode, createModeRouter, modeFromUrl, type ModeFactory } from './modes/modes';
+import { createMenuMode, createModeRouter, modeFromUrl, type ModeFactory } from './modes/modes';
 import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/fixture';
 import { createTracker, TrackerError, type Tracker, type TrackerErrorKind } from './tracker/tracker';
 
@@ -29,7 +30,7 @@ const MODES: Record<string, ModeFactory> = {
   menu: createMenuMode,
   draw: createDrawMode,
   slides: createSlidesMode,
-  catch: (nav) => createComingSoonMode(nav, 'Catch'),
+  catch: createCatchMode,
 };
 
 /**
