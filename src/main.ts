@@ -9,8 +9,9 @@ import { createCatchMode } from './modes/catch';
 import { createDrawMode } from './modes/draw';
 import { createSlidesMode } from './modes/slides';
 import { createMenuMode, createModeRouter, modeFromUrl, type ModeFactory } from './modes/modes';
+import { createRecordMode, downloadJson } from './recorder/record-mode';
 import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/fixture';
-import { createTracker, TrackerError, type Tracker, type TrackerErrorKind } from './tracker/tracker';
+import { createTracker, TrackerError, type HandFrame, type Tracker, type TrackerErrorKind } from './tracker/tracker';
 
 /** The recording played by "Watch a demo". */
 const DEMO_FIXTURE = 'demo-showcase';
@@ -26,11 +27,22 @@ function showLanding() {
   renderLanding(app, { onTryIt: startCamera });
 }
 
+/** Every tracked frame of the running tracker, for modes that read landmarks directly (the recorder). */
+const frameListeners = new Set<(frame: HandFrame | null) => void>();
+
 const MODES: Record<string, ModeFactory> = {
   menu: createMenuMode,
   draw: createDrawMode,
   slides: createSlidesMode,
   catch: createCatchMode,
+  // Hidden: only reachable by ?mode=record, never listed on the menu.
+  record: (nav) =>
+    createRecordMode(nav, {
+      subscribe(cb) {
+        frameListeners.add(cb);
+        return () => frameListeners.delete(cb);
+      },
+    }),
 };
 
 /**
@@ -128,6 +140,7 @@ function runTracker(tracker: Tracker, stopLabel: string) {
   });
   tracker.onFrame((frame, { detectMs }) => {
     view.draw(frame);
+    frameListeners.forEach((cb) => cb(frame));
     const gestureStart = performance.now();
     // No-hand frames carry no timestamp; give them the time so a press can ride out a short dropout.
     const out = gestures.update(frame, frame ? undefined : performance.now());
@@ -174,12 +187,7 @@ function enableCaptureHotkey(tracker: Tracker) {
     if (!e.shiftKey || e.key.toLowerCase() !== 'r') return;
     const name = `capture-${new Date().toISOString().replace(/[:.]/g, '-')}`;
     try {
-      const blob = new Blob([JSON.stringify(recorder.toFixture(name))], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${name}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      downloadJson(`${name}.json`, recorder.toFixture(name));
     } catch (err) {
       console.warn(err);
     }

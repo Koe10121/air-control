@@ -161,3 +161,29 @@ test('Catch: a mouse-only game starts, runs, pauses with Space, ends and shows t
   await game.getByRole('button', { name: 'Play again' }).click();
   await expect(game).toHaveAttribute('data-phase', 'playing');
 });
+
+test('recorder (hidden ?mode=record) captures a fixture clip and downloads landmarks-only schema v1', async ({ page }) => {
+  test.setTimeout(40_000);
+  await page.goto('/?source=fixture:open-palm-hold&mode=record');
+  await expect(page.getByRole('heading', { name: 'Recorder' })).toBeVisible();
+  await page.locator('select[name="label"]').selectOption('open_palm');
+  await page.getByRole('button', { name: 'Record' }).click();
+  await expect(page.locator('.record-clips li')).toHaveText(/open_palm: \d+ samples/, { timeout: 20_000 });
+
+  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('.record-export').click()]);
+  const text = await (await download.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks).toString());
+  const data = JSON.parse(text);
+  expect(data.schemaVersion).toBe(1);
+  // ~10 s at ~10 Hz; the fixture loops, so a short no-hand gap at each restart may drop a few.
+  expect(data.samples.length).toBeGreaterThan(80);
+  expect(data.samples.length).toBeLessThanOrEqual(101);
+  expect(Object.keys(data.samples[0]).sort()).toEqual(['handedness', 'label', 'landmarks', 'lighting', 'participant', 'session', 'timestamp']);
+  expect(data.samples[0].label).toBe('open_palm');
+  expect(text).not.toMatch(/image|base64/);
+});
+
+test('the recorder is not on the mode menu', async ({ page }) => {
+  await page.goto('/?source=fixture:open-palm-hold');
+  await expect(page.locator('.mode-button')).toHaveCount(3);
+  await expect(page.locator('.mode-button[data-mode="record"]')).toHaveCount(0);
+});

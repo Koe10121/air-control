@@ -14,6 +14,6 @@ prd: §4.8 recorder, user story 18
 - Tips shown for the `none` class: "fidget, scratch, hold a mug, move between poses".
 
 ## Acceptance criteria
-- [ ] TDD unit tests: frames in → schema-v1 JSON; subsampling to ~10 Hz; `null` frames skipped; no image data present.
-- [ ] Manual check: recording 10 s gives about 100 samples in a downloaded file.
-- [ ] Works in fixture mode, so it can be tested without a camera.
+- [x] TDD unit tests: frames in → schema-v1 JSON; subsampling to ~10 Hz; `null` frames skipped; no image data present.
+- [x] Manual check: recording 10 s gives about 100 samples in a downloaded file.
+- [x] Works in fixture mode, so it can be tested without a camera.

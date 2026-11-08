@@ -571,3 +571,89 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* Recorder (?mode=record): a settings panel on the right, the countdown big in the middle. */
+.record-mode {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.record-panel {
+  position: absolute;
+  top: 3.5rem;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  width: min(16rem, calc(100% - 1.5rem));
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(14, 17, 22, 0.85);
+  border: 1px solid var(--muted);
+  border-radius: 0.75rem;
+  pointer-events: auto;
+}
+
+.record-panel h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.record-field {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.record-field select,
+.record-field input {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--muted);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.record-tips,
+.record-message,
+.record-count {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.record-tips:empty,
+.record-message:empty,
+.record-count:empty {
+  display: none;
+}
+
+.record-count {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.record-clips {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.85rem;
+}
+
+.record-countdown {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(4rem, 18vw, 10rem);
+  font-weight: 800;
+  color: var(--fg);
+  text-shadow: 0 0 1.5rem rgba(0, 0, 0, 0.6);
+}
+
+.record-countdown.live {
+  box-shadow: inset 0 0 0 4px #ff6b6b;
+}
