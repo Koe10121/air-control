@@ -81,6 +81,24 @@ describe('createInput: one action stream', () => {
     ]);
   });
 
+  it('maps digit keys to select (0-based) and C to clear', () => {
+    const { actions } = setup();
+    for (const key of ['1', '5', 'c', 'C']) document.dispatchEvent(new KeyboardEvent('keydown', { key }));
+    expect(actions).toEqual([
+      { type: 'select', index: 0, source: 'keyboard' },
+      { type: 'select', index: 4, source: 'keyboard' },
+      { type: 'clear', source: 'keyboard' },
+      { type: 'clear', source: 'keyboard' },
+    ]);
+  });
+
+  it('ignores shortcut keys typed with a modifier (e.g. Ctrl+C)', () => {
+    const { actions } = setup();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '1', metaKey: true }));
+    expect(actions).toEqual([]);
+  });
+
   it('stops listening after destroy', () => {
     const { root, input, actions } = setup();
     input.destroy();

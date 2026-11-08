@@ -160,14 +160,122 @@ body {
   filter: brightness(1.15);
 }
 
-/* Temporary (issue 007): a counter button to pinch-click. */
-.test-counter {
+/* Modes render here: above the video/skeleton canvas, below the cursor and stage buttons. */
+.mode-layer {
   position: absolute;
+  inset: 0;
+}
+
+.stage-button.back-to-menu {
+  right: auto;
+  left: 0.75rem;
+  z-index: 2;
+}
+
+/* Mode menu: big targets, easy to hit with a hand cursor. */
+.mode-menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  gap: 4%;
+  padding: 4rem 1rem;
+}
+
+.mode-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: clamp(8rem, 26%, 14rem);
+  aspect-ratio: 1;
+  padding: 1rem;
+  font: inherit;
+  color: var(--fg);
+  background: rgba(14, 17, 22, 0.8);
+  border: 2px solid var(--muted);
+  border-radius: 1.25rem;
+  cursor: pointer;
+}
+
+.mode-button:hover,
+.mode-button:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.mode-title {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 700;
+}
+
+.mode-blurb {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.coming-soon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(14, 17, 22, 0.6);
+}
+
+.coming-soon h2,
+.coming-soon p {
+  margin: 0.25rem;
+}
+
+/* Air Draw */
+.draw-mode {
+  position: absolute;
+  inset: 0;
+}
+
+.draw-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+.draw-toolbar {
+  position: absolute;
+  top: 0.75rem;
   left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  padding: 1rem 2rem;
-  font-size: 1.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(14, 17, 22, 0.8);
+}
+
+.swatch {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  background: var(--swatch);
+  cursor: pointer;
+}
+
+.swatch[aria-pressed='true'] {
+  border-color: var(--fg);
+  box-shadow: 0 0 0 3px rgba(14, 17, 22, 0.9) inset;
+}
+
+.draw-clear {
+  padding: 0.6rem 1.1rem;
 }
 
 .live-status {
@@ -180,6 +288,7 @@ body {
   border-radius: 999px;
   background: rgba(14, 17, 22, 0.8);
   color: var(--fg);
+  pointer-events: none;
 }
 
 .live-status[hidden] {

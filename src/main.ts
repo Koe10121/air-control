@@ -4,7 +4,9 @@ import { renderLanding } from './app/landing';
 import { renderLiveView, renderMouseStage } from './app/overlay';
 import { createDebugPanel } from './debug/panel';
 import { createGestureEngine, DEFAULT_GESTURE_CONFIG } from './gestures/gestures';
-import { createInput } from './input/input';
+import { createInput, type Input } from './input/input';
+import { createDrawMode } from './modes/draw';
+import { createComingSoonMode, createMenuMode, createModeRouter, modeFromUrl, type ModeFactory } from './modes/modes';
 import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/fixture';
 import { createTracker, TrackerError, type Tracker, type TrackerErrorKind } from './tracker/tracker';
 
@@ -22,8 +24,59 @@ function showLanding() {
   renderLanding(app, { onTryIt: startCamera });
 }
 
+const MODES: Record<string, ModeFactory> = {
+  menu: createMenuMode,
+  draw: createDrawMode,
+  slides: (nav) => createComingSoonMode(nav, 'Slides'),
+  catch: (nav) => createComingSoonMode(nav, 'Catch'),
+};
+
+/**
+ * Opens the `?mode=` deep link (or the menu) in `layer`, feeds it input actions and animation ticks,
+ * and keeps `?mode=` in the address bar in step. Returns a teardown.
+ */
+function startModes(layer: HTMLElement, input: Input): () => void {
+  const router = createModeRouter(layer, MODES, {
+    onChange(name) {
+      const params = new URLSearchParams(location.search);
+      if (name === 'menu') params.delete('mode');
+      else params.set('mode', name);
+      const query = params.toString();
+      history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
+    },
+  });
+  const wanted = modeFromUrl(location.search);
+  if (!wanted || !router.open(wanted)) router.open('menu');
+  const unsubscribe = input.onAction((action) => router.handle(action));
+  let raf = 0;
+  let last = performance.now();
+  const loop = (now: number) => {
+    router.tick(now - last);
+    last = now;
+    raf = requestAnimationFrame(loop);
+  };
+  raf = requestAnimationFrame(loop);
+  return () => {
+    cancelAnimationFrame(raf);
+    unsubscribe();
+    router.close();
+  };
+}
+
 function showMouseStage() {
-  renderMouseStage(app, { onExit: showLanding });
+  let teardown = () => {};
+  const { stage, layer } = renderMouseStage(app, {
+    onExit: () => {
+      teardown();
+      showLanding();
+    },
+  });
+  const input = createInput(stage);
+  const stopModes = startModes(layer, input);
+  teardown = () => {
+    stopModes();
+    input.destroy();
+  };
 }
 
 function showError(kind: TrackerErrorKind) {
@@ -44,8 +97,13 @@ function runTracker(tracker: Tracker, stopLabel: string) {
     },
   });
   const input = createInput(view.stage);
+  const stopModes = startModes(view.layer, input);
   const debug = createDebugPanel(view.stage);
+  let tornDown = false;
   const teardown = () => {
+    if (tornDown) return;
+    tornDown = true;
+    stopModes();
     input.destroy();
     debug.destroy();
   };

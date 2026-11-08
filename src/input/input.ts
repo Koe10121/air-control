@@ -8,7 +8,9 @@ export type ActionSource = 'gesture' | 'mouse' | 'keyboard';
 /** Positions are normalised (0..1) within the input root. */
 export type Action =
   | { type: 'pointer-move' | 'press' | 'release' | 'click'; x: number; y: number; source: ActionSource }
-  | { type: 'next' | 'prev' | 'pause' | 'clear'; source: ActionSource };
+  | { type: 'next' | 'prev' | 'pause' | 'clear'; source: ActionSource }
+  /** Digit keys 1–9 → index 0–8 (e.g. a Draw colour). */
+  | { type: 'select'; index: number; source: ActionSource };
 
 export interface Input {
   /** Feed the gesture engine's output for one frame. */
@@ -66,8 +68,11 @@ export function createInput(root: HTMLElement, options: InputOptions = {}): Inpu
     emit({ type: mouseTypes[e.type as keyof typeof mouseTypes], ...toLocal(e), source: 'mouse' });
   };
   const onKey = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const type = KEYS[e.key];
     if (type) emit({ type, source: 'keyboard' });
+    else if (/^[1-9]$/.test(e.key)) emit({ type: 'select', index: Number(e.key) - 1, source: 'keyboard' });
+    else if (e.key.toLowerCase() === 'c') emit({ type: 'clear', source: 'keyboard' });
   };
   for (const type of Object.keys(mouseTypes)) root.addEventListener(type, onMouse as EventListener);
   doc.addEventListener('keydown', onKey);

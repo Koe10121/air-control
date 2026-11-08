@@ -54,24 +54,21 @@ describe('renderLiveView cursor dot', () => {
   });
 });
 
-describe('test click counter (issue 007)', () => {
-  const counter = (root: HTMLElement) => root.querySelector<HTMLButtonElement>('.test-counter')!;
-
-  it('counts clicks on the live stage', () => {
+describe('mode layer', () => {
+  it('is an empty layer inside the live stage, below the cursor', () => {
     const root = document.createElement('div');
     const view = renderLiveView(root, () => null, { onStop: vi.fn() });
-    expect(view.stage.contains(counter(root))).toBe(true);
-    expect(counter(root).textContent).toBe('Clicked 0 times');
-    counter(root).click();
-    counter(root).click();
-    expect(counter(root).textContent).toBe('Clicked 2 times');
+    expect(view.stage.contains(view.layer)).toBe(true);
+    expect(view.layer.childElementCount).toBe(0);
+    const dot = root.querySelector('.cursor-dot')!;
+    expect(view.layer.compareDocumentPosition(dot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(root.querySelector('.test-counter')).toBeNull();
   });
 
   it('is on the mouse stage too', () => {
     const root = document.createElement('div');
-    renderMouseStage(root, { onExit: vi.fn() });
-    counter(root).click();
-    expect(counter(root).textContent).toBe('Clicked 1 time');
+    const { stage, layer } = renderMouseStage(root, { onExit: vi.fn() });
+    expect(stage.contains(layer)).toBe(true);
   });
 });
 

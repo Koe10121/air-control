@@ -33,19 +33,12 @@ export interface LiveView {
   setPinch(amount: number, pressed: boolean): void;
   /** The stage element: the root for input and hit-testing. */
   readonly stage: HTMLElement;
+  /** Where the current mode renders. */
+  readonly layer: HTMLElement;
 }
 
-const TEST_COUNTER = '<button type="button" class="test-counter">Clicked 0 times</button>';
-
-/** Temporary (issue 007): a button that counts its clicks, to try pinch-click on. */
-function wireTestCounter(root: HTMLElement) {
-  const button = root.querySelector<HTMLButtonElement>('.test-counter')!;
-  let count = 0;
-  button.addEventListener('click', () => {
-    count++;
-    button.textContent = `Clicked ${count} time${count === 1 ? '' : 's'}`;
-  });
-}
+/** The element modes render into: above the video and skeleton, below the cursor and stage buttons. */
+const MODE_LAYER = '<div class="mode-layer"></div>';
 
 export interface LiveViewOptions {
   /** Called when the visitor clicks the stop button. */
@@ -64,7 +57,7 @@ export function renderLiveView(
     <main class="live">
       <div class="stage">
         <canvas class="overlay" aria-label="Mirrored view with hand skeleton"></canvas>
-        ${TEST_COUNTER}
+        ${MODE_LAYER}
         <div class="cursor-dot" aria-hidden="true"><div class="cursor-ring"></div></div>
         <p class="live-status" role="status"></p>
         <button type="button" class="secondary stage-button stop-camera"></button>
@@ -79,10 +72,10 @@ export function renderLiveView(
   const dot = root.querySelector<HTMLDivElement>('.cursor-dot')!;
   const ctx = canvas.getContext('2d');
   const fps = createFpsCounter();
-  wireTestCounter(root);
 
   return {
     stage: root.querySelector<HTMLElement>('.stage')!,
+    layer: root.querySelector<HTMLElement>('.mode-layer')!,
 
     setPinch(amount, pressed) {
       dot.style.setProperty('--pinch', String(amount));
@@ -154,16 +147,19 @@ export function renderLiveView(
 }
 
 /** The app without a camera: an empty stage driven by the normal mouse pointer. */
-export function renderMouseStage(root: HTMLElement, { onExit }: { onExit: () => void }): void {
+export function renderMouseStage(
+  root: HTMLElement,
+  { onExit }: { onExit: () => void },
+): { stage: HTMLElement; layer: HTMLElement } {
   root.innerHTML = `
     <main class="live">
       <div class="stage mouse-stage">
+        ${MODE_LAYER}
         <p class="live-status" role="status">Mouse mode: no camera in use.</p>
-        ${TEST_COUNTER}
         <button type="button" class="secondary stage-button back">Back</button>
       </div>
     </main>
   `;
-  wireTestCounter(root);
   root.querySelector('.back')?.addEventListener('click', onExit);
+  return { stage: root.querySelector<HTMLElement>('.stage')!, layer: root.querySelector<HTMLElement>('.mode-layer')! };
 }
