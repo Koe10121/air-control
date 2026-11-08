@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { SLIDES } from '../src/modes/slides-content';
 
 /** Makes getUserMedia fail like a denied permission prompt, so "Use mouse instead" is offered. */
 async function denyCamera(page: Page) {
@@ -41,7 +42,7 @@ const hasInk = (page: Page) =>
 test('the mouse alone can open Draw, draw, change colour, clear and go back to the menu', async ({ page }) => {
   await openMouseStage(page);
   const menu = page.getByRole('navigation', { name: 'Modes' });
-  await expect(menu.getByRole('button', { name: /slides.*coming soon/i })).toBeVisible();
+  await expect(menu.getByRole('button', { name: /slides/i })).not.toContainText(/coming soon/i);
   await expect(menu.getByRole('button', { name: /catch.*coming soon/i })).toBeVisible();
 
   await menu.getByRole('button', { name: /draw/i }).click();
@@ -84,4 +85,45 @@ test('?mode=draw opens Draw directly', async ({ page }) => {
 test('?mode=draw also opens Draw after "Use mouse instead"', async ({ page }) => {
   await openMouseStage(page, '/?mode=draw');
   await expect(page.locator('.draw-mode')).toBeVisible();
+});
+
+test('Slides: the arrow keys move through every slide and stop at the ends', async ({ page }) => {
+  await openMouseStage(page);
+  await page.getByRole('navigation', { name: 'Modes' }).getByRole('button', { name: /slides/i }).click();
+  await expect(page).toHaveURL(/[?&]mode=slides/);
+  const deck = page.getByRole('region', { name: 'Slides' });
+  const heading = deck.getByRole('heading', { level: 2 });
+  const counter = deck.locator('.slides-counter');
+  const n = SLIDES.length;
+
+  await expect(heading).toHaveText(SLIDES[0]!.title);
+  await expect(counter).toHaveText(`1 / ${n}`);
+  await page.keyboard.press('ArrowLeft'); // already at the start
+  await expect(counter).toHaveText(`1 / ${n}`);
+
+  for (let i = 1; i < n; i++) {
+    await page.keyboard.press('ArrowRight');
+    await expect(heading).toHaveText(SLIDES[i]!.title);
+    await expect(counter).toHaveText(`${i + 1} / ${n}`);
+  }
+  await page.keyboard.press('ArrowRight'); // already at the end
+  await expect(counter).toHaveText(`${n} / ${n}`);
+  await expect(deck.getByRole('button', { name: 'Next slide' })).toBeDisabled();
+
+  for (let i = n - 2; i >= 0; i--) {
+    await page.keyboard.press('ArrowLeft');
+    await expect(heading).toHaveText(SLIDES[i]!.title);
+  }
+  await expect(deck.getByRole('button', { name: 'Previous slide' })).toBeDisabled();
+
+  // The on-screen buttons do the same.
+  await deck.getByRole('button', { name: 'Next slide' }).click();
+  await expect(counter).toHaveText(`2 / ${n}`);
+  await deck.getByRole('button', { name: 'Previous slide' }).click();
+  await expect(counter).toHaveText(`1 / ${n}`);
+});
+
+test('?mode=slides opens Slides directly', async ({ page }) => {
+  await page.goto('/?source=fixture:synthetic-wave&mode=slides');
+  await expect(page.getByRole('region', { name: 'Slides' })).toBeVisible();
 });

@@ -46,7 +46,7 @@ describe('createTracker({ fixture })', () => {
   it('replays frames with their recorded spacing', async () => {
     const tracker = createTracker({ fixture });
     const seen: number[] = [];
-    tracker.onFrame((f) => seen.push(f!.landmarks[0]!.x));
+    tracker.onFrame((f) => f && seen.push(f.landmarks[0]!.x));
     await tracker.start();
     vi.advanceTimersByTime(99);
     expect(seen).toEqual([0.1]);
@@ -60,7 +60,7 @@ describe('createTracker({ fixture })', () => {
   it('re-bases timestamps onto the live clock, strictly increasing and spaced as recorded', async () => {
     const tracker = createTracker({ fixture });
     const stamps: number[] = [];
-    tracker.onFrame((f) => stamps.push(f!.timestamp));
+    tracker.onFrame((f) => f && stamps.push(f.timestamp));
     const startedAt = performance.now();
     await tracker.start();
     vi.advanceTimersByTime(200);
@@ -70,23 +70,25 @@ describe('createTracker({ fixture })', () => {
     tracker.stop();
   });
 
-  it('loops: after the last frame it waits one frame interval (1000 / fps) and starts again', async () => {
+  it('loops: after the last frame the hand leaves view (a null frame), then after one frame interval (1000 / fps) it starts again', async () => {
     const tracker = createTracker({ fixture });
-    const seen: number[] = [];
+    const seen: Array<number | null> = [];
     const stamps: number[] = [];
     tracker.onFrame((f) => {
-      seen.push(f!.landmarks[0]!.x);
-      stamps.push(f!.timestamp);
+      seen.push(f ? f.landmarks[0]!.x : null);
+      if (f) stamps.push(f.timestamp);
     });
     await tracker.start();
     vi.advanceTimersByTime(200); // last frame of the first pass
+    // Without the null, the jump from the last position back to the first would look like a fast move (a swipe).
+    expect(seen).toEqual([0.1, 0.2, 0.3, null]);
     vi.advanceTimersByTime(99);
-    expect(seen).toHaveLength(3);
+    expect(seen).toHaveLength(4);
     vi.advanceTimersByTime(1);
-    expect(seen).toEqual([0.1, 0.2, 0.3, 0.1]);
+    expect(seen).toEqual([0.1, 0.2, 0.3, null, 0.1]);
     expect(stamps[3]! - stamps[2]!).toBe(100);
     vi.advanceTimersByTime(200);
-    expect(seen).toEqual([0.1, 0.2, 0.3, 0.1, 0.2, 0.3]);
+    expect(seen).toEqual([0.1, 0.2, 0.3, null, 0.1, 0.2, 0.3, null]);
     tracker.stop();
   });
 

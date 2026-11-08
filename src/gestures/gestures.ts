@@ -77,6 +77,16 @@ export interface GestureConfig extends OneEuroParams {
   releaseMs: number;
   /** A press survives the hand vanishing for up to this long (tracking dropouts during fast moves). */
   lossGraceMs: number;
+  /** Swipe detection on or off (Slides turns it on while mounted; see `GestureEngine.setSwipes`). */
+  swipes: boolean;
+  /** A swipe is the palm centre moving this far sideways (fractions of the camera frame width)… */
+  swipeDistance: number;
+  /** …within this long… */
+  swipeWindowMs: number;
+  /** …with vertical movement under this fraction of the horizontal. */
+  swipeMaxSlope: number;
+  /** No new swipe for this long after one. */
+  swipeCooldownMs: number;
 }
 
 export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
@@ -101,6 +111,14 @@ export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
   // draw-fast: open flickers mid-stroke last up to ≈75 ms; tracking dropouts mostly 60–150 ms.
   releaseMs: 80,
   lossGraceMs: 250,
+  swipes: false,
+  // Recorded swipes (swipe-left / swipe-right) cover 0.20 / 0.18 frame widths in 250 ms but 0.28 / 0.27 in
+  // 400 ms. Non-swipes peak at 0.16 (fidget-10s) and 0.19 (hand-leaves-mid-pinch) however long the window.
+  // 0.22 sits between with room both ways; revisit in issue 016.
+  swipeDistance: 0.22,
+  swipeWindowMs: 400,
+  swipeMaxSlope: 0.5,
+  swipeCooldownMs: 600,
 };
 
 /** Pinch ratio of a relaxed, open pointing hand: the ring starts closing below this. */
@@ -115,6 +133,8 @@ export interface GestureEngine {
    * dropout; without it a null frame releases at once.
    */
   update(frame: HandFrame | null, now?: number): GestureOutput;
+  /** Turns swipe detection on or off (overrides `config.swipes`). */
+  setSwipes(on: boolean): void;
 }
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
@@ -161,6 +181,35 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
   let holdAnchor: Cursor = { x: 0, y: 0 };
   let holdSeen = 0;
   let holdFired = false;
+
+  // Swipe state: recent palm centres (oldest first, raw camera space) and the end of the cooldown.
+  let swipesOn = config.swipes;
+  let palmTrail: { t: number; x: number; y: number }[] = [];
+  let swipeQuietUntil = -Infinity;
+
+  /**
+   * Looks for a fast sideways palm movement ending at this frame; pushes `swipe-left` / `swipe-right`.
+   * Raw camera x grows towards the user's left (the video is shown mirrored), so +x = swipe-left.
+   */
+  const updateSwipe = (frame: HandFrame, events: GestureEvent[]) => {
+    const t = frame.timestamp;
+    if (!swipesOn || pressed || t < swipeQuietUntil) {
+      palmTrail = [];
+      return;
+    }
+    const { x, y } = palmCentre(frame.landmarks);
+    while (palmTrail.length > 0 && palmTrail[0]!.t < t - config.swipeWindowMs) palmTrail.shift();
+    const start = palmTrail.find(
+      (p) => Math.abs(x - p.x) >= config.swipeDistance && Math.abs(y - p.y) <= config.swipeMaxSlope * Math.abs(x - p.x),
+    );
+    if (start) {
+      events.push(x > start.x ? 'swipe-left' : 'swipe-right');
+      swipeQuietUntil = t + config.swipeCooldownMs;
+      palmTrail = [];
+      return;
+    }
+    palmTrail.push({ t, x, y });
+  };
 
   /** Advances the hold timers for one frame; pushes `clear` / `pause` when one completes. */
   const updateHold = (pose: Pose, frame: HandFrame, events: GestureEvent[]): HoldProgress | null => {
@@ -215,10 +264,16 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
     missing = false;
     history = [];
     holdPose = null;
+    palmTrail = [];
     return events;
   }
 
   return {
+    setSwipes(on) {
+      swipesOn = on;
+      palmTrail = [];
+    },
+
     update(frame, now) {
       if (!frame) {
         if (pressed && now !== undefined && now - lastSeen <= config.lossGraceMs) {
@@ -232,6 +287,8 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
       // Back after too long a gap: end the old press, then treat this as a new hand.
       const resumed: GestureEvent[] = missing && frame.timestamp - lastSeen > config.lossGraceMs ? reset() : [];
       missing = false;
+      // A long gap between frames means the hand was out of view: its old positions are no swipe start.
+      if (frame.timestamp - lastSeen > config.lossGraceMs) palmTrail = [];
       lastSeen = frame.timestamp;
 
       const t = frame.timestamp;
@@ -246,6 +303,7 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
       const ratio = pinchRatio(frame.landmarks);
       const events: GestureEvent[] = resumed;
       const hold = updateHold(pose, frame, events);
+      updateSwipe(frame, events);
 
       if (pressed) {
         openSince = ratio > config.pinchOpen ? (openSince ?? t) : null;

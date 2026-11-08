@@ -6,6 +6,7 @@ import { createDebugPanel } from './debug/panel';
 import { createGestureEngine, DEFAULT_GESTURE_CONFIG } from './gestures/gestures';
 import { createInput, type Input } from './input/input';
 import { createDrawMode } from './modes/draw';
+import { createSlidesMode } from './modes/slides';
 import { createComingSoonMode, createMenuMode, createModeRouter, modeFromUrl, type ModeFactory } from './modes/modes';
 import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/fixture';
 import { createTracker, TrackerError, type Tracker, type TrackerErrorKind } from './tracker/tracker';
@@ -27,17 +28,19 @@ function showLanding() {
 const MODES: Record<string, ModeFactory> = {
   menu: createMenuMode,
   draw: createDrawMode,
-  slides: (nav) => createComingSoonMode(nav, 'Slides'),
+  slides: createSlidesMode,
   catch: (nav) => createComingSoonMode(nav, 'Catch'),
 };
 
 /**
  * Opens the `?mode=` deep link (or the menu) in `layer`, feeds it input actions and animation ticks,
- * and keeps `?mode=` in the address bar in step. Returns a teardown.
+ * and keeps `?mode=` in the address bar in step. `onModeChange` hears every mode switch.
+ * Returns a teardown.
  */
-function startModes(layer: HTMLElement, input: Input): () => void {
+function startModes(layer: HTMLElement, input: Input, onModeChange?: (name: string) => void): () => void {
   const router = createModeRouter(layer, MODES, {
     onChange(name) {
+      onModeChange?.(name);
       const params = new URLSearchParams(location.search);
       if (name === 'menu') params.delete('mode');
       else params.set('mode', name);
@@ -97,7 +100,9 @@ function runTracker(tracker: Tracker, stopLabel: string) {
     },
   });
   const input = createInput(view.stage);
-  const stopModes = startModes(view.layer, input);
+  const gestures = createGestureEngine(DEFAULT_GESTURE_CONFIG);
+  // Swipes are only listened for while Slides is open, so a fast hand elsewhere never pages anything.
+  const stopModes = startModes(view.layer, input, (name) => gestures.setSwipes(name === 'slides'));
   const debug = createDebugPanel(view.stage);
   let tornDown = false;
   const teardown = () => {
@@ -120,7 +125,6 @@ function runTracker(tracker: Tracker, stopLabel: string) {
     } else if (status.state === 'paused') debug.setTrackerStatus('Paused (tab hidden)');
     else if (status.state === 'error') showError(status.error.kind);
   });
-  const gestures = createGestureEngine(DEFAULT_GESTURE_CONFIG);
   tracker.onFrame((frame, { detectMs }) => {
     view.draw(frame);
     const gestureStart = performance.now();

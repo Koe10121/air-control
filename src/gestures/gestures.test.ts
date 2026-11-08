@@ -704,3 +704,133 @@ describe('createGestureEngine: draw-fast-2 fixture', () => {
     expect(jump).toBeLessThan(0.12);
   });
 });
+
+// ---- Swipes (issue 010) ----
+
+describe('createGestureEngine: swipes', () => {
+  const swiping: GestureConfig = { ...raw, swipes: true };
+
+  /** Moves an open hand in raw camera x from `x0` to `x1` over `ms`, then holds still; returns every event. */
+  function sweep(f: ReturnType<typeof feeder>, x0: number, x1: number, ms: number, y0 = 0.5, y1 = y0): string[] {
+    const events: string[] = [];
+    const n = Math.max(1, Math.round(ms / DT));
+    for (let i = 0; i <= n; i++) events.push(...f.step(OPEN, x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n).events);
+    return events;
+  }
+  const swipes = (events: string[]) => events.filter((e) => e.startsWith('swipe'));
+
+  it('are off unless the config turns them on', () => {
+    expect(DEFAULT_GESTURE_CONFIG.swipes).toBe(false);
+    expect(swipes(sweep(feeder(), 0.2, 0.7, 200))).toEqual([]);
+  });
+
+  it('moving the hand to the user\'s left (raw x up, mirrored video) fast and far gives one swipe-left', () => {
+    expect(swipes(sweep(feeder(swiping), 0.2, 0.6, 200))).toEqual(['swipe-left']);
+  });
+
+  it('moving the hand to the user\'s right gives one swipe-right', () => {
+    expect(swipes(sweep(feeder(swiping), 0.7, 0.3, 200))).toEqual(['swipe-right']);
+  });
+
+  it('needs the distance threshold (22% of the frame width)', () => {
+    expect(swipes(sweep(feeder(swiping), 0.4, 0.6, 150))).toEqual([]);
+    expect(swipes(sweep(feeder(swiping), 0.4, 0.65, 150))).toEqual(['swipe-left']);
+  });
+
+  it('needs the distance covered within the swipe window: a slow move gives nothing', () => {
+    expect(swipes(sweep(feeder(swiping), 0.1, 0.9, 2000))).toEqual([]);
+  });
+
+  it('must be mostly horizontal', () => {
+    expect(swipes(sweep(feeder(swiping), 0.3, 0.6, 200, 0.3, 0.6))).toEqual([]);
+  });
+
+  it('fires once per movement, then cools down for 600 ms', () => {
+    const f = feeder(swiping);
+    expect(swipes(sweep(f, 0.1, 0.9, 300))).toEqual(['swipe-left']);
+    // Straight back, inside the cooldown: ignored.
+    expect(swipes(sweep(f, 0.9, 0.5, 150))).toEqual([]);
+    f.wait(600);
+    expect(swipes(sweep(f, 0.5, 0.1, 150))).toEqual(['swipe-right']);
+  });
+
+  it('respects configured distance, window and cooldown', () => {
+    const f = feeder({ ...swiping, swipeDistance: 0.1, swipeWindowMs: 100, swipeCooldownMs: 0 });
+    expect(swipes(sweep(f, 0.4, 0.55, 66))).toEqual(['swipe-left']);
+    expect(swipes(sweep(f, 0.55, 0.4, 66))).toEqual(['swipe-right']);
+    expect(swipes(sweep(f, 0.4, 0.8, 1000))).toEqual([]);
+  });
+
+  it('can be switched on and off at runtime', () => {
+    const engine = createGestureEngine(raw);
+    let t = 0;
+    const run = (x0: number, x1: number) => {
+      const events: string[] = [];
+      for (let i = 0; i <= 6; i++) events.push(...engine.update(hand(x0 + ((x1 - x0) * i) / 6, 0.5, OPEN, (t += DT))).events);
+      t += 1000;
+      return swipes(events);
+    };
+    expect(run(0.2, 0.7)).toEqual([]);
+    engine.setSwipes(true);
+    expect(run(0.7, 0.2)).toEqual(['swipe-right']);
+    engine.setSwipes(false);
+    expect(run(0.2, 0.7)).toEqual([]);
+  });
+
+  it('does not swipe while a pinch is pressed (that is a drag)', () => {
+    const f = feeder(swiping);
+    for (let i = 0; i < 4; i++) f.step(CLOSED, 0.2);
+    const events: string[] = [];
+    for (let i = 0; i <= 6; i++) events.push(...f.step(CLOSED, 0.2 + (0.5 * i) / 6).events);
+    expect(swipes(events)).toEqual([]);
+  });
+
+  it('forgets the motion across a gap in frame timestamps (hand out of view without null frames)', () => {
+    const f = feeder(swiping);
+    f.step(OPEN, 0.2);
+    f.wait(DEFAULT_GESTURE_CONFIG.lossGraceMs + 20);
+    expect(swipes([...f.step(OPEN, 0.8).events, ...f.step(OPEN, 0.8).events])).toEqual([]);
+  });
+
+  it('forgets the motion when the hand is lost: reappearing elsewhere is not a swipe', () => {
+    const f = feeder(swiping);
+    f.step(OPEN, 0.2);
+    f.lose();
+    expect(swipes([...f.step(OPEN, 0.8).events, ...f.step(OPEN, 0.8).events])).toEqual([]);
+  });
+});
+
+describe('createGestureEngine: swipe fixtures', () => {
+  /** Every event from replaying a fixture with swipes on (null frames at gaps, as above). */
+  function replaySwipes(name: string): string[] {
+    const { frames } = parseFixture(JSON.parse(readFileSync(`public/fixtures/${name}.json`, 'utf8')));
+    const engine = createGestureEngine({ ...DEFAULT_GESTURE_CONFIG, swipes: true });
+    const events: string[] = [];
+    let prev: HandFrame | null = null;
+    for (const frame of frames) {
+      if (prev && frame.timestamp - prev.timestamp > 200) events.push(...engine.update(null).events);
+      events.push(...engine.update(frame).events);
+      prev = frame;
+    }
+    events.push(...engine.update(null).events);
+    return events;
+  }
+
+  it('swipe-left gives exactly one swipe-left and nothing else', () => {
+    expect(replaySwipes('swipe-left')).toEqual(['swipe-left']);
+  });
+
+  it('swipe-right gives exactly one swipe-right and nothing else', () => {
+    expect(replaySwipes('swipe-right')).toEqual(['swipe-right']);
+  });
+
+  it('fidget-10s gives no swipes', () => {
+    expect(replaySwipes('fidget-10s').filter((e) => e.startsWith('swipe'))).toEqual([]);
+  });
+
+  it('the other recordings give no swipes either', () => {
+    for (const name of ['pinch-twice', 'open-palm-hold', 'fist-hold', 'demo-showcase', 'hand-leaves-mid-pinch', 'draw-fast-2']) {
+      expect(replaySwipes(name).filter((e) => e.startsWith('swipe')), name).toEqual([]);
+    }
+  });
+});

@@ -263,6 +263,82 @@ body {
   margin: 0.25rem;
 }
 
+/* Slides: a readable card over the dimmed video, with big prev/next targets for the hand cursor. */
+.slides-mode {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3.5rem 1rem 1rem;
+  background: rgba(14, 17, 22, 0.55);
+}
+
+.slide {
+  width: min(44rem, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: clamp(1rem, 3vw, 2rem);
+  border-radius: 1.25rem;
+  background: rgba(14, 17, 22, 0.88);
+  border: 2px solid var(--muted);
+}
+
+.slide h2 {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.4rem, 3.5vw, 2.2rem);
+  color: var(--accent);
+}
+
+.slide ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: clamp(0.95rem, 2vw, 1.2rem);
+  line-height: 1.5;
+}
+
+.slide li + li {
+  margin-top: 0.4rem;
+}
+
+.slide-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 1rem 0 0;
+}
+
+.slide-links a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.slides-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.slides-controls button {
+  min-width: 7rem;
+  min-height: 3rem;
+  font-size: 1.1rem;
+}
+
+.slides-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.slides-counter {
+  min-width: 4rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
 /* Air Draw */
 .draw-mode {
   position: absolute;

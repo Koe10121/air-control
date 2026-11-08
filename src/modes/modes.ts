@@ -80,7 +80,7 @@ export interface MenuEntry {
 
 export const MENU_ENTRIES: readonly MenuEntry[] = [
   { name: 'draw', title: 'Draw', blurb: 'Pinch and move to draw in the air', ready: true },
-  { name: 'slides', title: 'Slides', blurb: 'Swipe through a deck', ready: false },
+  { name: 'slides', title: 'Slides', blurb: 'Swipe your open hand to turn the page', ready: true },
   { name: 'catch', title: 'Catch', blurb: 'Catch falling things with your palm', ready: false },
 ];
 

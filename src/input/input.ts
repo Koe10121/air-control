@@ -112,8 +112,10 @@ export function createInput(root: HTMLElement, options: InputOptions = {}): Inpu
           }
         } else if (event === 'pause' || event === 'clear') {
           emit({ type: event, source: 'gesture' });
+        } else if (event === 'swipe-left' || event === 'swipe-right') {
+          // Point the way you want to go: hand to the right = next, like the → key and the Next button.
+          emit({ type: event === 'swipe-right' ? 'next' : 'prev', source: 'gesture' });
         }
-        // Swipes map to next/prev in issue 010.
       }
       // While a press rides out a dropout, keep its position for the release.
       if (!out.cursor && !out.pressed) last = null;

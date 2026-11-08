@@ -34,6 +34,9 @@ export function createFixtureTracker(fixture: Fixture): Tracker {
     if (next) {
       timer = setTimeout(() => play(i + 1, passStart), next.timestamp - frame.timestamp);
     } else {
+      // The recording ends where the hand was last seen: report it gone, as the camera would, so the
+      // jump back to the first frame isn't read as a fast move.
+      frameListeners.forEach((cb) => cb(null, { detectMs: 0 }));
       timer = setTimeout(() => play(0, out.timestamp + loopGap), loopGap);
     }
   };

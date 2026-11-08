@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { GestureEvent, GestureOutput } from '../gestures/gestures';
+import { readFileSync } from 'node:fs';
+import { createGestureEngine, DEFAULT_GESTURE_CONFIG, type GestureEvent, type GestureOutput } from '../gestures/gestures';
+import { parseFixture } from '../tracker/fixture';
 import { createInput, type Action, type Input } from './input';
 
 /** A 400×200 root at (100, 50), with one button. jsdom has no layout, so the rect and hit test are stubbed. */
@@ -129,6 +131,16 @@ describe('createInput: one action stream', () => {
     ]);
   });
 
+  it('maps swipe-right to next and swipe-left to prev (point the way you want to go)', () => {
+    const { input, actions } = setup();
+    input.push(gesture(0.25, 0.5, ['swipe-right']));
+    input.push(gesture(0.25, 0.5, ['swipe-left']));
+    expect(actions.filter((a) => a.type !== 'pointer-move')).toEqual([
+      { type: 'next', source: 'gesture' },
+      { type: 'prev', source: 'gesture' },
+    ]);
+  });
+
   it('ignores shortcut keys typed with a modifier (e.g. Ctrl+C)', () => {
     const { actions } = setup();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true }));
@@ -180,5 +192,34 @@ describe('createInput: virtual pointer', () => {
     const { button, input } = setup();
     input.push(gesture(0.25, 0.5, ['press']));
     expect(document.activeElement).toBe(button);
+  });
+});
+
+describe('createInput: swipe fixtures through the gesture engine', () => {
+  /** The next/prev actions from replaying a fixture through the engine (swipes on) and input. */
+  function navActions(name: string) {
+    const { input, actions } = setup();
+    const { frames } = parseFixture(JSON.parse(readFileSync(`public/fixtures/${name}.json`, 'utf8')));
+    const engine = createGestureEngine({ ...DEFAULT_GESTURE_CONFIG, swipes: true });
+    let prev = -Infinity;
+    for (const frame of frames) {
+      if (frame.timestamp - prev > 200) input.push(engine.update(null));
+      input.push(engine.update(frame));
+      prev = frame.timestamp;
+    }
+    input.push(engine.update(null));
+    return actions.filter((a) => a.type === 'next' || a.type === 'prev').map((a) => a.type);
+  }
+
+  it('swipe-right gives exactly 1 next', () => {
+    expect(navActions('swipe-right')).toEqual(['next']);
+  });
+
+  it('swipe-left gives exactly 1 prev', () => {
+    expect(navActions('swipe-left')).toEqual(['prev']);
+  });
+
+  it('fidget-10s gives no next or prev', () => {
+    expect(navActions('fidget-10s')).toEqual([]);
   });
 });

@@ -14,8 +14,8 @@ before the no-hand gap that separates the takes was cut. Nothing else was edited
 | Fixture | Length | Contains | Used for |
 |---|---|---|---|
 | `pinch-twice` | 6.7 s | Pointing hand: pinch, release, pinch, release. | Exactly 2 clicks (007) |
-| `swipe-left` | 4.3 s | Still open hand, one fast swipe to the user's left (raw x 0.30 → 0.76), still again. | Exactly 1 `next` (010) |
-| `swipe-right` | 3.7 s | Still open hand, one fast swipe to the user's right (raw x 0.81 → 0.18), still again. | Exactly 1 `prev` (010) |
+| `swipe-left` | 4.3 s | Still open hand, one fast swipe to the user's left (raw x 0.30 → 0.76), still again. | Exactly 1 `prev` (010) |
+| `swipe-right` | 3.7 s | Still open hand, one fast swipe to the user's right (raw x 0.81 → 0.18), still again. | Exactly 1 `next` (010) |
 | `fidget-10s` | 7.9 s | Natural movement with no intended gesture: includes near-pinches, curled fingers, a brief exit from view and handedness flicker. | 0 clicks, 0 swipes, no holds |
 | `hand-leaves-mid-pinch` | 3.7 s | Pinch, then the hand leaves the frame while still pinched; the file ends mid-pinch. | `release` and no stuck press (007). Tests should feed a `null` frame after the last one. |
 | `open-palm-hold` | 3.3 s | Open palm held still. | Exactly 1 `pause` (009) |
