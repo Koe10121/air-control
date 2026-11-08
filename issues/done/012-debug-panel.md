@@ -12,5 +12,5 @@ prd: §4.7 debug, user story 17
 
 ## Acceptance criteria
 - [x] TDD unit tests for the rolling window, p50/p95 and the FPS calculation.
-- [ ] Manual check: the panel shows live numbers, and the pose label changes as the hand changes.
+- [x] Manual check: the panel shows live numbers, and the pose label changes as the hand changes.
 - [x] No DOM writes while the panel is collapsed.
