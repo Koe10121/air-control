@@ -27,3 +27,5 @@ prd: §4.5 modes, §4.6 app, user stories 7, 15, 16
 - `?mode=` is applied after the visitor starts (camera, mouse or demo); the camera is still never requested on load.
   The address bar's `?mode=` follows the open mode.
 - Manual check (drawing in the air with pinch-hold) still to do with a live camera.
+- Fix after first manual try: the hand only drew dots because the cursor stayed locked for the whole pinch.
+  Gestures now have a `dragThreshold` (0.08 screen): past it the cursor follows the hand and release gives no click.

@@ -42,6 +42,11 @@ export interface GestureConfig extends OneEuroParams {
   lockLookbackMs: number;
   /** No new press for this long after a click. */
   clickCooldownMs: number;
+  /**
+   * Once pressed, moving the hand this far (screen widths) from where it was at the press turns the
+   * pinch into a drag: the cursor unlocks and follows the hand, and the release gives no click.
+   */
+  dragThreshold: number;
 }
 
 export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
@@ -55,6 +60,8 @@ export const DEFAULT_GESTURE_CONFIG: GestureConfig = {
   confirmFrames: 3,
   lockLookbackMs: 100,
   clickCooldownMs: 300,
+  // Recorded deliberate clicks (pinch-twice) drift up to ~0.06; revisit in issue 016.
+  dragThreshold: 0.08,
 };
 
 /** Pinch ratio of a relaxed, open pointing hand: the ring starts closing below this. */
@@ -82,6 +89,9 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
   let closedFrames = 0;
   let closeStart = 0;
   let locked: Cursor | null = null;
+  /** Where the (unlocked) hand cursor was at the press, to tell a drag from pinch jitter. */
+  let pressAt: Cursor | null = null;
+  let dragging = false;
   let lastClick = -Infinity;
   /** Recent filtered cursor positions, oldest first. */
   let history: { t: number; cursor: Cursor }[] = [];
@@ -103,6 +113,8 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
         pressed = false;
         closedFrames = 0;
         locked = null;
+        pressAt = null;
+        dragging = false;
         history = [];
         return { cursor: null, pose: 'none', confidence: 0, events, pinch: 0, pressed: false };
       }
@@ -120,13 +132,19 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
       const events: GestureEvent[] = [];
 
       if (pressed) {
+        if (!dragging && pressAt && Math.hypot(smoothed.x - pressAt.x, smoothed.y - pressAt.y) > config.dragThreshold) {
+          dragging = true;
+          locked = null;
+        }
         if (ratio > config.pinchOpen) {
-          events.push('release', 'click');
-          const cursor = locked!;
+          const cursor = locked ?? smoothed;
+          events.push(...(dragging ? (['release'] as const) : (['release', 'click'] as const)));
+          if (!dragging) lastClick = t;
           pressed = false;
           locked = null;
+          pressAt = null;
+          dragging = false;
           closedFrames = 0;
-          lastClick = t;
           return { cursor, pose, confidence, events, pinch: pinchProgress(ratio), pressed: false };
         }
       } else if (ratio < config.pinchClose && pose === 'pinch' && t - lastClick >= config.clickCooldownMs) {
@@ -135,6 +153,7 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
         if (closedFrames >= config.confirmFrames) {
           pressed = true;
           locked = cursorBefore(closeStart);
+          pressAt = smoothed;
           events.push('press');
         }
       } else {

@@ -228,14 +228,47 @@ describe('createGestureEngine: cursor lock', () => {
     };
     expect(outs[7]!.events).toEqual(['press']);
     expectAtBefore(outs[7]!.cursor);
-    // Still locked while the hand drifts during the hold.
-    expectAtBefore(f.step(CLOSED, 0.3).cursor);
+    // Still locked while the hand drifts a little during the hold (under the drag threshold).
+    expectAtBefore(f.step(CLOSED, 0.44).cursor);
     // The click is delivered at the locked position.
-    const release = f.step(OPEN, 0.3);
+    const release = f.step(OPEN, 0.44);
     expect(release.events).toEqual(['release', 'click']);
     expectAtBefore(release.cursor);
     // Then the cursor follows the hand again.
     expect(f.step(OPEN, 0.3).cursor!.x).toBeGreaterThan(before.x + 0.1);
+  });
+});
+
+describe('createGestureEngine: pinch-drag', () => {
+  /** Screen x for an unmirrored camera x, with the raw (unfiltered) config. */
+  const screenX = (x: number) => createGestureEngine(raw).update(hand(x, 0.5, OPEN, 0)).cursor!.x;
+
+  it('moving past the drag threshold while pressed unlocks the cursor so it follows the hand', () => {
+    const f = feeder();
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r, 0.5));
+    // 0.1 of the camera frame ≈ 0.14 of the screen: well past the threshold.
+    const moved = f.step(CLOSED, 0.4);
+    expect(moved.pressed).toBe(true);
+    expect(moved.cursor!.x).toBeCloseTo(screenX(0.4), 6);
+    // It keeps following, even back near the press point.
+    expect(f.step(CLOSED, 0.3).cursor!.x).toBeCloseTo(screenX(0.3), 6);
+    expect(f.step(CLOSED, 0.5).cursor!.x).toBeCloseTo(screenX(0.5), 6);
+  });
+
+  it('a drag ends with release only, no click, at the hand position', () => {
+    const f = feeder();
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r, 0.5));
+    f.step(CLOSED, 0.35);
+    const out = f.step(OPEN, 0.35);
+    expect(out.events).toEqual(['release']);
+    expect(out.cursor!.x).toBeCloseTo(screenX(0.35), 6);
+  });
+
+  it('respects a configured drag threshold', () => {
+    const f = feeder({ ...raw, dragThreshold: 0.5 });
+    [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r, 0.5));
+    f.step(CLOSED, 0.4);
+    expect(f.step(OPEN, 0.4).events).toEqual(['release', 'click']);
   });
 });
 
