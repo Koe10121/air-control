@@ -1,4 +1,4 @@
-// Air Draw (PRD §4.5): press = pen down, release = pen up, lines follow the cursor.
+// Air Draw (PRD §4.5): press = pen down, release (or pause) = pen up, lines follow the cursor.
 // All logic is in the pure `drawReduce`; the mode below only renders state to a canvas and DOM.
 import type { Action } from '../input/input';
 import { addBackButton, type Mode, type Nav } from './modes';
@@ -48,6 +48,8 @@ export function drawReduce(state: DrawState, action: Action): DrawState {
       return action.index >= 0 && action.index < PALETTE.length ? { ...state, color: action.index } : state;
     case 'clear':
       return { ...state, strokes: [], penDown: false };
+    case 'pause':
+      return state.penDown ? { ...state, penDown: false } : state;
     default:
       return state;
   }

@@ -129,6 +129,7 @@ function runTracker(tracker: Tracker, stopLabel: string) {
     debug.record({ detectMs, gestureMs, pose: out.pose, confidence: out.confidence, timestamp: frame?.timestamp ?? performance.now() });
     view.setCursor(out.cursor);
     view.setPinch(out.pinch, out.pressed);
+    view.setHold(out.hold);
     input.push(out);
   });
   tracker.start().catch((err: unknown) => {

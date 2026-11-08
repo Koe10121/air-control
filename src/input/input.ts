@@ -73,6 +73,12 @@ export function createInput(root: HTMLElement, options: InputOptions = {}): Inpu
     if (type) emit({ type, source: 'keyboard' });
     else if (/^[1-9]$/.test(e.key)) emit({ type: 'select', index: Number(e.key) - 1, source: 'keyboard' });
     else if (e.key.toLowerCase() === 'c') emit({ type: 'clear', source: 'keyboard' });
+    else if (e.key === ' ') {
+      // On a focused button (or field) Space keeps its normal job.
+      if (e.target instanceof Element && e.target.closest(INTERACTIVE)) return;
+      e.preventDefault(); // no page scroll
+      emit({ type: 'pause', source: 'keyboard' });
+    }
   };
   for (const type of Object.keys(mouseTypes)) root.addEventListener(type, onMouse as EventListener);
   doc.addEventListener('keydown', onKey);

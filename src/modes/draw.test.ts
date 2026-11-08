@@ -74,6 +74,27 @@ describe('drawReduce', () => {
     expect(s).toEqual({ strokes: [], penDown: false, color: 3 });
   });
 
+  it('pause lifts the pen: the stroke ends and later moves draw nothing', () => {
+    const s = run([
+      at('press', 0.1, 0.1),
+      at('pointer-move', 0.2, 0.2),
+      { type: 'pause', source: 'gesture' },
+      at('pointer-move', 0.3, 0.3),
+      at('release', 0.3, 0.3),
+    ]);
+    expect(s.penDown).toBe(false);
+    expect(s.strokes).toHaveLength(1);
+    expect(s.strokes[0]!.points).toEqual([
+      { x: 0.1, y: 0.1 },
+      { x: 0.2, y: 0.2 },
+    ]);
+  });
+
+  it('pause with the pen already up changes nothing', () => {
+    const before = run([at('press', 0.1, 0.1), at('release', 0.2, 0.2)]);
+    expect(run([{ type: 'pause', source: 'keyboard' }], before)).toBe(before);
+  });
+
   it('does not mutate the previous state', () => {
     const before = run([at('press', 0.1, 0.1)]);
     const snapshot = JSON.parse(JSON.stringify(before));

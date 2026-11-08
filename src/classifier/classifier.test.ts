@@ -49,4 +49,61 @@ describe('rulesClassifier', () => {
     const flat = Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5, z: 0 }));
     expect(rulesClassifier(flat, 'Right').label).toBe('none');
   });
+
+  it('labels a closed hand (all four fingers curled) as fist', () => {
+    expect(classify(frameAt('fist-hold', 1.0))).toBe('fist');
+    expect(classify(frameAt('fist-hold', 3.0))).toBe('fist');
+  });
+
+  it('calls a fist a fist even when the thumb tip rests near the index tip', () => {
+    // fist-hold at 1.24 s: pinch-range thumb–index distance inside the fist. It must not be a pinch.
+    const f = frameAt('fist-hold', 1.24);
+    expect(pinchRatio(f.landmarks)).toBeLessThan(0.25);
+    expect(classify(f)).toBe('fist');
+  });
+
+  it('labels a spread open hand (four fingers out, thumb out) as open_palm', () => {
+    expect(classify(frameAt('open-palm-hold', 1.0))).toBe('open_palm');
+    expect(classify(frameAt('open-palm-hold', 3.0))).toBe('open_palm');
+  });
+
+  it('does not call a flat hand with the fingers and thumb together an open palm (the swipe hand)', () => {
+    expect(classify(frameAt('swipe-left', 1.0))).toBe('none');
+    expect(classify(frameAt('swipe-right', 1.0))).toBe('none');
+    expect(classify(frameAt('swipe-right', 3.5))).toBe('none');
+  });
+
+  it('keeps a pointing hand (only the index out) as point, not open_palm or fist', () => {
+    for (const s of [1.0, 2.5, 4.3, 6.2]) expect(classify(frameAt('pinch-twice', s))).toBe('point');
+  });
+
+  it('works the same for a mirrored (left) hand', () => {
+    for (const [fixture, s, pose] of [
+      ['fist-hold', 2.0, 'fist'],
+      ['open-palm-hold', 2.0, 'open_palm'],
+      ['pinch-twice', 3.3, 'pinch'],
+    ] as const) {
+      const f = frameAt(fixture, s);
+      const mirrored = f.landmarks.map(({ x, y, z }) => ({ x: 1 - x, y, z }));
+      expect(rulesClassifier(mirrored, 'Left').label).toBe(pose);
+    }
+  });
+
+  it('is more confident about a clear pose than a borderline one', () => {
+    const conf = (fixture: string, s: number) => {
+      const f = frameAt(fixture, s);
+      return rulesClassifier(f.landmarks, f.handedness).confidence;
+    };
+    for (const [fixture, s] of [
+      ['fist-hold', 2.0],
+      ['open-palm-hold', 2.0],
+      ['pinch-twice', 3.3],
+      ['pinch-twice', 1.0],
+    ] as const) {
+      expect(conf(fixture, s)).toBeGreaterThan(0.5);
+      expect(conf(fixture, s)).toBeLessThanOrEqual(1);
+    }
+    // A fist with the index half-uncurled (fist-hold 1.24 s) is less certain than a tight one.
+    expect(conf('fist-hold', 1.24)).toBeLessThan(conf('fist-hold', 2.0));
+  });
 });

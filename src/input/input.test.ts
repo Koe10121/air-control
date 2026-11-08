@@ -32,6 +32,7 @@ const gesture = (x: number | null, y: number, events: GestureEvent[] = []): Gest
   events,
   pinch: 0,
   pressed: false,
+  hold: null,
 });
 
 const mouse = (target: Element, type: string, clientX: number, clientY: number) =>
@@ -89,6 +90,32 @@ describe('createInput: one action stream', () => {
       { type: 'select', index: 4, source: 'keyboard' },
       { type: 'clear', source: 'keyboard' },
       { type: 'clear', source: 'keyboard' },
+    ]);
+  });
+
+  it('maps Space to pause, and stops the page scrolling', () => {
+    const { actions } = setup();
+    const e = new KeyboardEvent('keydown', { key: ' ', cancelable: true });
+    document.dispatchEvent(e);
+    expect(actions).toEqual([{ type: 'pause', source: 'keyboard' }]);
+    expect(e.defaultPrevented).toBe(true);
+  });
+
+  it('leaves Space alone on a focused button, so it still presses the button', () => {
+    const { button, actions } = setup();
+    const e = new KeyboardEvent('keydown', { key: ' ', cancelable: true, bubbles: true });
+    button.dispatchEvent(e);
+    expect(actions).toEqual([]);
+    expect(e.defaultPrevented).toBe(false);
+  });
+
+  it('maps the hold gestures to clear and pause', () => {
+    const { input, actions } = setup();
+    input.push(gesture(0.25, 0.5, ['clear']));
+    input.push(gesture(0.25, 0.5, ['pause']));
+    expect(actions.filter((a) => a.type !== 'pointer-move')).toEqual([
+      { type: 'clear', source: 'gesture' },
+      { type: 'pause', source: 'gesture' },
     ]);
   });
 

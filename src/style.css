@@ -153,6 +153,36 @@ body {
   border-color: var(--fg);
 }
 
+/* Hold ring: fills clockwise while a fist (clear) or still open palm (pause) is held (--hold: 0 → 1). */
+.cursor-hold {
+  position: absolute;
+  inset: 50%;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  border-radius: 50%;
+  --hold-color: var(--accent);
+  background: conic-gradient(var(--hold-color) calc(var(--hold, 0) * 360deg), rgba(255, 255, 255, 0.18) 0);
+  /* Keep only a 6px band of the disc. */
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 5px));
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.cursor-dot.holding .cursor-hold {
+  opacity: 1;
+}
+
+/* One ring at a time: the pinch ring makes way for the hold ring. */
+.cursor-dot.holding .cursor-ring {
+  opacity: 0;
+}
+
+.cursor-dot[data-hold='clear'] .cursor-hold {
+  --hold-color: #ff6b6b;
+}
+
 /* The element under the hand cursor (set by the input module's virtual pointer). */
 .hand-hover {
   outline: 3px solid var(--accent);

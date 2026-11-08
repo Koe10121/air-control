@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseFixture } from '../tracker/fixture';
 import type { HandFrame } from '../tracker/tracker';
-import { createGestureEngine, DEFAULT_GESTURE_CONFIG, INDEX_TIP, type Cursor, type GestureConfig } from './gestures';
+import { createGestureEngine, DEFAULT_GESTURE_CONFIG, INDEX_TIP, type Cursor, type GestureConfig, type Pose } from './gestures';
 
 /** A hand whose index fingertip is at (x, y) in the unmirrored camera image. */
 const tipAt = (x: number, y: number, timestamp: number): HandFrame => ({
@@ -69,7 +69,7 @@ describe('createGestureEngine: smoothing and hand loss', () => {
   it('a null frame gives a null cursor, no pose and no events', () => {
     const engine = createGestureEngine(DEFAULT_GESTURE_CONFIG);
     engine.update(tipAt(0.5, 0.5, 0));
-    expect(engine.update(null)).toEqual({ cursor: null, pose: 'none', confidence: 0, events: [], pinch: 0, pressed: false });
+    expect(engine.update(null)).toEqual({ cursor: null, pose: 'none', confidence: 0, events: [], pinch: 0, pressed: false, hold: null });
   });
 
   it('resets on hand loss: the first frame after a null is not smoothed toward the old position', () => {
@@ -288,7 +288,7 @@ describe('createGestureEngine: hand lost mid-pinch', () => {
   it('releases without a click, and the next hand starts fresh', () => {
     const f = feeder();
     [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
-    expect(f.lose()).toEqual({ cursor: null, pose: 'none', confidence: 0, events: ['release'], pinch: 0, pressed: false });
+    expect(f.lose()).toEqual({ cursor: null, pose: 'none', confidence: 0, events: ['release'], pinch: 0, pressed: false, hold: null });
     expect(f.lose().events).toEqual([]);
     // Coming back already pinched must be confirmed again from scratch.
     expect([CLOSED, CLOSED].flatMap((r) => f.step(r).events)).toEqual([]);
@@ -328,5 +328,192 @@ describe('createGestureEngine: pinch fixtures', () => {
 
   it('hand-leaves-mid-pinch gives a release and no stuck press', () => {
     expect(replay('hand-leaves-mid-pinch')).toEqual(['press', 'release']);
+  });
+});
+
+// ---- Hold gestures (issue 009) ----
+
+describe('createGestureEngine: hold gestures', () => {
+  /** A feeder whose classifier returns whatever pose the test sets. */
+  function holder(config: GestureConfig = raw) {
+    let pose: Pose = 'none';
+    const f = feeder(config, () => ({ label: pose, confidence: 1 }));
+    return {
+      /** One frame of `p` with the palm at camera (x, y). */
+      step(p: Pose, x = 0.5, y = 0.5) {
+        pose = p;
+        return f.step(p === 'pinch' ? CLOSED : OPEN, x, y);
+      },
+      /** Frames of `p` for about `ms`; returns all events. */
+      hold(p: Pose, ms: number, x = 0.5, y = 0.5) {
+        const events: string[] = [];
+        for (let t = 0; t < ms; t += DT) events.push(...this.step(p, x, y).events);
+        return events;
+      },
+      lose: () => f.lose(),
+    };
+  }
+
+  it('a fist held for 1 s gives exactly one clear, however long it is held', () => {
+    const h = holder();
+    expect(h.hold('fist', 900)).toEqual([]);
+    expect(h.hold('fist', 200)).toEqual(['clear']);
+    expect(h.hold('fist', 3000)).toEqual([]);
+  });
+
+  it('fires on the first frame at least 1 s after the pose started', () => {
+    const h = holder();
+    // Frames every 33 ms from t = 0: t = 990 is under 1 s, t = 1023 is the first at or over it.
+    const events = Array.from({ length: 32 }, () => h.step('fist').events);
+    expect(events.findIndex((e) => e.includes('clear'))).toBe(31);
+  });
+
+  it('must be released before it can fire again', () => {
+    const h = holder();
+    expect(h.hold('fist', 1100)).toEqual(['clear']);
+    h.hold('point', 300);
+    expect(h.hold('fist', 1100)).toEqual(['clear']);
+  });
+
+  it('a fist released before 1 s gives nothing, and the next one starts from zero', () => {
+    const h = holder();
+    h.hold('fist', 700);
+    h.hold('none', 300);
+    expect(h.hold('fist', 700)).toEqual([]);
+  });
+
+  it('a fist does not need to be still', () => {
+    const h = holder();
+    const events: string[] = [];
+    for (let i = 0; i < 40; i++) events.push(...h.step('fist', 0.3 + (i % 2) * 0.3).events);
+    expect(events).toEqual(['clear']);
+  });
+
+  it('an open palm held still for 1 s gives exactly one pause', () => {
+    const h = holder();
+    expect(h.hold('open_palm', 1100)).toEqual(['pause']);
+    expect(h.hold('open_palm', 2000)).toEqual([]);
+    h.hold('none', 300);
+    expect(h.hold('open_palm', 1100)).toEqual(['pause']);
+  });
+
+  it('a moving open palm never pauses', () => {
+    const h = holder();
+    const events: string[] = [];
+    // Sweeps back and forth by half a palm (0.1 of the frame) every 300 ms.
+    for (let i = 0; i < 100; i++) events.push(...h.step('open_palm', 0.4 + 0.1 * Math.abs(Math.sin(i / 3))).events);
+    expect(events).toEqual([]);
+  });
+
+  it('moving the open palm restarts the hold; tiny jitter does not', () => {
+    const h = holder();
+    h.hold('open_palm', 800, 0.5);
+    // A move of a whole palm size (0.2 of the frame) restarts the timer…
+    expect(h.hold('open_palm', 800, 0.7)).toEqual([]);
+    // …and jitter of a few percent of a palm size does not stop it firing.
+    const events: string[] = [];
+    for (let i = 0; i < 10; i++) events.push(...h.step('open_palm', 0.7 + (i % 2) * 0.005).events);
+    expect(events).toEqual(['pause']);
+  });
+
+  it('respects a configured hold time and stillness radius', () => {
+    const h = holder({ ...raw, holdMs: 500, stillRadius: 2 });
+    const events: string[] = [];
+    // Moves 1.5 palm sizes in total: inside a radius of 2.
+    for (let i = 0; i < 20; i++) events.push(...h.step('open_palm', 0.5 + i * 0.015).events);
+    expect(events).toEqual(['pause']);
+    expect(h.hold('fist', 550)).toEqual(['clear']);
+  });
+
+  it('switching straight from one hold pose to the other starts the new hold from zero', () => {
+    const h = holder();
+    h.hold('fist', 800);
+    expect(h.hold('open_palm', 800)).toEqual([]);
+    expect(h.hold('open_palm', 300)).toEqual(['pause']);
+  });
+
+  it('a brief flicker to another pose (under the grace time) does not end or restart the hold', () => {
+    const h = holder();
+    h.hold('fist', 600);
+    // fist-hold has flickers like this: the index pokes out of the fist for a few frames.
+    h.hold('pinch', 100);
+    expect(h.hold('fist', 400)).toEqual(['clear']);
+    // Nor does a flicker count as releasing it.
+    h.hold('point', 100);
+    expect(h.hold('fist', 2000)).toEqual([]);
+  });
+
+  it('does not press while a fist is being held, even when the hand flickers to a pinch', () => {
+    const h = holder();
+    h.hold('fist', 300);
+    const events: string[] = [];
+    for (let i = 0; i < 5; i++) events.push(...h.step('pinch').events);
+    // Pinch-shaped hand: thumb on index. A pinch only counts once the fist has really ended.
+    expect(events).toEqual([]);
+  });
+
+    it('losing the hand cancels a hold', () => {
+    const h = holder();
+    h.hold('fist', 800);
+    h.lose();
+    expect(h.hold('fist', 800)).toEqual([]);
+  });
+
+  it('reports hold progress for the cursor ring, and none once it has fired', () => {
+    const h = holder();
+    expect(h.step('point').hold).toBeNull();
+    h.hold('fist', 500);
+    const mid = h.step('fist').hold!;
+    expect(mid.gesture).toBe('clear');
+    expect(mid.progress).toBeGreaterThan(0.45);
+    expect(mid.progress).toBeLessThan(0.6);
+    h.hold('fist', 600);
+    expect(h.step('fist').hold).toBeNull();
+    h.hold('none', 300);
+    expect(h.step('open_palm').hold).toEqual({ gesture: 'pause', progress: 0 });
+    expect(h.lose().hold).toBeNull();
+  });
+});
+
+describe('createGestureEngine: hold fixtures', () => {
+  /** Every event from replaying a fixture through the default engine (see replay above). */
+  function replayAll(name: string): string[] {
+    const { frames } = parseFixture(JSON.parse(readFileSync(`public/fixtures/${name}.json`, 'utf8')));
+    const engine = createGestureEngine(DEFAULT_GESTURE_CONFIG);
+    const events: string[] = [];
+    let prev: HandFrame | null = null;
+    for (const frame of frames) {
+      if (prev && frame.timestamp - prev.timestamp > 200) events.push(...engine.update(null).events);
+      events.push(...engine.update(frame).events);
+      prev = frame;
+    }
+    events.push(...engine.update(null).events);
+    return events;
+  }
+
+  it('fist-hold gives exactly 1 clear, and no click', () => {
+    expect(replayAll('fist-hold')).toEqual(['clear']);
+  });
+
+  it('open-palm-hold gives exactly 1 pause', () => {
+    expect(replayAll('open-palm-hold')).toEqual(['pause']);
+  });
+
+  it('fidget-10s gives no clear and no pause', () => {
+    const events = replayAll('fidget-10s');
+    expect(events).not.toContain('clear');
+    expect(events).not.toContain('pause');
+  });
+
+  it('the swipe fixtures do not pause (or clear)', () => {
+    for (const name of ['swipe-left', 'swipe-right']) {
+      const events = replayAll(name);
+      expect(events).not.toContain('pause');
+      expect(events).not.toContain('clear');
+    }
+  });
+
+  it('pinch-twice still gives exactly its 2 clicks and no holds', () => {
+    expect(replayAll('pinch-twice')).toEqual(['press', 'release', 'click', 'press', 'release', 'click']);
   });
 });

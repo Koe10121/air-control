@@ -2,6 +2,7 @@
 // Without a video (fixture playback) the skeleton is drawn over a neutral background.
 import { createFpsCounter } from '../debug/stats';
 import { VIDEO_HEIGHT, VIDEO_WIDTH, type HandFrame, type Landmark } from '../tracker/tracker';
+import type { HoldProgress } from '../gestures/gestures';
 
 /** Bones between MediaPipe's 21 hand landmarks (wrist = 0, thumb 1–4, index 5–8, … pinky 17–20). */
 export const HAND_CONNECTIONS: ReadonlyArray<readonly [number, number]> = [
@@ -31,6 +32,8 @@ export interface LiveView {
   setCursor(cursor: { x: number; y: number } | null): void;
   /** Closes the ring around the cursor: 0 = open hand, 1 = fully pinched. `pressed` marks a press. */
   setPinch(amount: number, pressed: boolean): void;
+  /** Fills the hold ring (fist → clear, still open palm → pause) as a hold builds up; null hides it. */
+  setHold(hold: HoldProgress | null): void;
   /** The stage element: the root for input and hit-testing. */
   readonly stage: HTMLElement;
   /** Where the current mode renders. */
@@ -58,7 +61,7 @@ export function renderLiveView(
       <div class="stage">
         <canvas class="overlay" aria-label="Mirrored view with hand skeleton"></canvas>
         ${MODE_LAYER}
-        <div class="cursor-dot" aria-hidden="true"><div class="cursor-ring"></div></div>
+        <div class="cursor-dot" aria-hidden="true"><div class="cursor-ring"></div><div class="cursor-hold"></div></div>
         <p class="live-status" role="status"></p>
         <button type="button" class="secondary stage-button stop-camera"></button>
       </div>
@@ -80,6 +83,12 @@ export function renderLiveView(
     setPinch(amount, pressed) {
       dot.style.setProperty('--pinch', String(amount));
       dot.classList.toggle('pressed', pressed);
+    },
+
+    setHold(hold) {
+      dot.classList.toggle('holding', hold !== null);
+      dot.style.setProperty('--hold', String(hold?.progress ?? 0));
+      if (hold) dot.dataset.hold = hold.gesture;
     },
 
     setStatus(text) {

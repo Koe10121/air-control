@@ -72,6 +72,22 @@ describe('mode layer', () => {
   });
 });
 
+describe('renderLiveView hold ring', () => {
+  it('shows hold progress on the cursor, tagged with the gesture it will fire, and hides it with no hold', () => {
+    const root = document.createElement('div');
+    const view = renderLiveView(root, () => null, { onStop: vi.fn() });
+    const dot = root.querySelector<HTMLElement>('.cursor-dot')!;
+    expect(dot.classList.contains('holding')).toBe(false);
+    view.setHold({ gesture: 'clear', progress: 0.4 });
+    expect(dot.classList.contains('holding')).toBe(true);
+    expect(dot.dataset.hold).toBe('clear');
+    expect(dot.style.getPropertyValue('--hold')).toBe('0.4');
+    view.setHold(null);
+    expect(dot.classList.contains('holding')).toBe(false);
+    expect(dot.style.getPropertyValue('--hold')).toBe('0');
+  });
+});
+
 describe('renderLiveView pinch ring', () => {
   it('closes the ring with the pinch and marks the press', () => {
     const root = document.createElement('div');
