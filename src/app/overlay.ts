@@ -28,6 +28,10 @@ export interface LiveView {
   draw(frame: HandFrame | null): void;
   /** Shows a status line (e.g. "Loading hand model…"); empty string hides it. */
   setStatus(text: string): void;
+  /** Loading progress bar: 0..1, null for unknown (indeterminate), undefined to hide it. */
+  setProgress(progress: number | null | undefined): void;
+  /** Shows or hides the "Performance mode" badge (adaptive quality has lowered the tracking load). */
+  setPerformanceMode(on: boolean): void;
   /** Moves the cursor dot to a normalised (0..1) stage position; null fades it out where it is. */
   setCursor(cursor: { x: number; y: number } | null): void;
   /** Closes the ring around the cursor: 0 = open hand, 1 = fully pinched. `pressed` marks a press. */
@@ -63,6 +67,8 @@ export function renderLiveView(
         ${MODE_LAYER}
         <div class="cursor-dot" aria-hidden="true"><div class="cursor-ring"></div><div class="cursor-hold"></div></div>
         <p class="live-status" role="status"></p>
+        <progress class="live-progress" max="1" aria-label="Loading hand model" hidden></progress>
+        <p class="perf-badge" title="Tracking was slow, so it now uses a lower camera resolution or skips frames." hidden>Performance mode</p>
         <button type="button" class="secondary stage-button stop-camera"></button>
       </div>
     </main>
@@ -73,6 +79,8 @@ export function renderLiveView(
   const canvas = root.querySelector<HTMLCanvasElement>('canvas.overlay')!;
   const statusEl = root.querySelector<HTMLParagraphElement>('.live-status')!;
   const dot = root.querySelector<HTMLDivElement>('.cursor-dot')!;
+  const progressBar = root.querySelector<HTMLProgressElement>('progress.live-progress')!;
+  const perfBadge = root.querySelector<HTMLElement>('.perf-badge')!;
   const ctx = canvas.getContext('2d');
   const fps = createFpsCounter();
 
@@ -94,6 +102,17 @@ export function renderLiveView(
     setStatus(text) {
       statusEl.textContent = text;
       statusEl.hidden = text === '';
+    },
+
+    setProgress(progress) {
+      progressBar.hidden = progress === undefined;
+      // A <progress> without a value attribute is indeterminate.
+      if (progress === null || progress === undefined) progressBar.removeAttribute('value');
+      else progressBar.value = progress;
+    },
+
+    setPerformanceMode(on) {
+      perfBadge.hidden = !on;
     },
 
     setCursor(cursor) {

@@ -12,7 +12,22 @@ import { createSlidesMode } from './modes/slides';
 import { createMenuMode, createModeRouter, modeFromUrl, type ModeFactory } from './modes/modes';
 import { createRecordMode, downloadJson } from './recorder/record-mode';
 import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/fixture';
-import { createTracker, TrackerError, type HandFrame, type Tracker, type TrackerErrorKind } from './tracker/tracker';
+import {
+  createTracker,
+  preloadHandModel,
+  QUALITY_VIDEO_SIZE,
+  TrackerError,
+  type HandFrame,
+  type QualityLevel,
+  type Tracker,
+  type TrackerErrorKind,
+} from './tracker/tracker';
+
+/** Debug-panel wording for each degraded quality level. */
+const PERFORMANCE_MODE_TEXT: Record<Exclude<QualityLevel, 'full'>, string> = {
+  'low-res': 'Performance mode: lower resolution',
+  'skip-frames': 'Performance mode: every other frame',
+};
 
 /** The recording played by "Watch a demo". */
 const DEMO_FIXTURE = 'demo-showcase';
@@ -25,7 +40,8 @@ if (!root) throw new Error('#app root element missing');
 const app: HTMLElement = root;
 
 function showLanding() {
-  renderLanding(app, { onTryIt: startCamera });
+  // Hovering or focusing "Try it" starts the model download, so the click feels instant.
+  renderLanding(app, { onTryIt: startCamera, onPreload: preloadHandModel });
 }
 
 /** Every tracked frame of the running tracker, for modes that read landmarks directly (the recorder). */
@@ -134,14 +150,20 @@ function runTracker(tracker: Tracker, stopLabel: string) {
   };
   tracker.onStatus((status) => {
     if (status.state === 'stopped' || status.state === 'error') teardown();
+    if (status.state !== 'loading-model') view.setProgress(undefined);
     if (status.state === 'starting-camera') view.setStatus('Waiting for camera permission…');
-    else if (status.state === 'loading-model') view.setStatus('Loading hand model…');
-    else if (status.state === 'running') {
+    else if (status.state === 'loading-model') {
+      const percent = status.progress === null ? '' : ` ${Math.round(status.progress * 100)}%`;
+      view.setStatus(`Loading hand model…${percent}`);
+      view.setProgress(status.progress);
+    } else if (status.state === 'running') {
       view.setStatus('');
-      const v = tracker.video;
+      const size = QUALITY_VIDEO_SIZE[status.quality];
       debug.setTrackerStatus(
-        status.delegate === 'fixture' ? 'Recording (no model)' : `${status.delegate} · ${v?.videoWidth ?? 0}×${v?.videoHeight ?? 0}`,
+        status.delegate === 'fixture' ? 'Recording (no model)' : `${status.delegate} · ${size.width}×${size.height}`,
       );
+      view.setPerformanceMode(status.quality !== 'full');
+      debug.setPerformanceMode(status.quality === 'full' ? null : PERFORMANCE_MODE_TEXT[status.quality]);
     } else if (status.state === 'paused') debug.setTrackerStatus('Paused (tab hidden)');
     else if (status.state === 'error') showError(status.error.kind);
   });

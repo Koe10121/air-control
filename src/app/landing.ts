@@ -1,9 +1,11 @@
 export interface LandingOptions {
   onTryIt: () => void;
+  /** Called when "Try it" is hovered or focused: a hint to start loading the hand model. */
+  onPreload?: () => void;
 }
 
 /** Renders the landing screen into `root`, replacing its contents. */
-export function renderLanding(root: HTMLElement, { onTryIt }: LandingOptions): void {
+export function renderLanding(root: HTMLElement, { onTryIt, onPreload }: LandingOptions): void {
   root.innerHTML = `
     <main class="landing">
       <h1>Air Control</h1>
@@ -19,5 +21,10 @@ export function renderLanding(root: HTMLElement, { onTryIt }: LandingOptions): v
       </section>
     </main>
   `;
-  root.querySelector<HTMLButtonElement>('.try-it')?.addEventListener('click', onTryIt);
+  const tryIt = root.querySelector<HTMLButtonElement>('.try-it')!;
+  tryIt.addEventListener('click', onTryIt);
+  if (onPreload) {
+    tryIt.addEventListener('pointerenter', onPreload, { once: true });
+    tryIt.addEventListener('focus', onPreload, { once: true });
+  }
 }

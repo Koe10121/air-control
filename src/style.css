@@ -526,6 +526,51 @@ body {
   display: none;
 }
 
+/* Model download progress, just above the status line. */
+.live-progress {
+  position: absolute;
+  left: 50%;
+  bottom: 4rem;
+  transform: translateX(-50%);
+  width: min(16rem, calc(100% - 2rem));
+  height: 0.5rem;
+  accent-color: var(--accent);
+  pointer-events: none;
+}
+
+.live-progress[hidden] {
+  display: none;
+}
+
+/* Adaptive quality kicked in: top centre, clear of the FPS label and the stage buttons. */
+.perf-badge {
+  margin: 0;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #f2c94c;
+  background: rgba(14, 17, 22, 0.8);
+  color: #f2c94c;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.stage > .perf-badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.perf-badge[hidden] {
+  display: none;
+}
+
+.debug-slot-perf .perf-badge {
+  margin-top: 0.5rem;
+  width: fit-content;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

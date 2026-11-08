@@ -39,3 +39,15 @@ describe('renderLanding', () => {
     expect(onTryIt).toHaveBeenCalledOnce();
   });
 });
+
+describe('renderLanding preload', () => {
+  it.each(['pointerenter', 'focus'])('calls onPreload when "Try it" gets %s, so the model is ready by the click', (type) => {
+    const root = document.createElement('div');
+    const onPreload = vi.fn();
+    renderLanding(root, { onTryIt: () => {}, onPreload });
+
+    root.querySelector('button')?.dispatchEvent(new Event(type));
+
+    expect(onPreload).toHaveBeenCalledOnce();
+  });
+});

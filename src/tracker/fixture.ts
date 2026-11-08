@@ -47,7 +47,7 @@ export function createFixtureTracker(fixture: Fixture): Tracker {
     async start() {
       if (running) return;
       running = true;
-      emitStatus({ state: 'running', delegate: 'fixture' });
+      emitStatus({ state: 'running', delegate: 'fixture', quality: 'full' });
       if (frames.length > 0) play(0, performance.now());
     },
 

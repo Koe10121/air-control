@@ -11,6 +11,8 @@ export interface DebugPanel {
   record(sample: FrameSample): void;
   /** Tracker details, e.g. "GPU · 640×480". */
   setTrackerStatus(text: string): void;
+  /** Shows a performance-mode badge with `text`, or removes it with null. */
+  setPerformanceMode(text: string | null): void;
   /** Removes the panel, its key listener and its frame loop. */
   destroy(): void;
 }
@@ -55,6 +57,7 @@ export function createDebugPanel(parent: HTMLElement, frames: FrameScheduler = b
   parent.append(el);
   const toggle = el.querySelector<HTMLButtonElement>('.debug-toggle')!;
   const body = el.querySelector<HTMLElement>('.debug-body')!;
+  const perfSlot = body.querySelector<HTMLElement>('.debug-slot-perf')!;
   const fields = new Map(ROWS.map(([field]) => [field, body.querySelector<HTMLElement>(`[data-field="${field}"]`)!]));
   const write = (field: string, text: string) => {
     const node = fields.get(field)!;
@@ -109,6 +112,15 @@ export function createDebugPanel(parent: HTMLElement, frames: FrameScheduler = b
     },
     setTrackerStatus(text) {
       trackerStatus = text;
+    },
+    setPerformanceMode(text) {
+      // Rare (only on a quality change), so it may touch the DOM even while collapsed.
+      perfSlot.replaceChildren();
+      if (text === null) return;
+      const badge = document.createElement('p');
+      badge.className = 'perf-badge';
+      badge.textContent = text;
+      perfSlot.append(badge);
     },
     destroy() {
       frames.cancelFrame(rafId);

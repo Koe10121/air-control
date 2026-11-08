@@ -50,7 +50,9 @@ beforeEach(() => {
   vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1));
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
   createFromOptions.mockReset();
-  createFromOptions.mockResolvedValue({ detectForVideo: vi.fn() });
+  createFromOptions.mockResolvedValue({ detectForVideo: vi.fn(), close: vi.fn() });
+  // The tracker downloads the model itself (for progress), so serve it a tiny stand-in.
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(new Uint8Array(8))));
 });
 
 afterEach(() => {

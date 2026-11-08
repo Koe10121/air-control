@@ -100,3 +100,32 @@ describe('renderLiveView pinch ring', () => {
     expect(dot.classList.contains('pressed')).toBe(true);
   });
 });
+
+describe('renderLiveView performance mode and loading', () => {
+  it('shows a "Performance mode" badge only while performance mode is on', () => {
+    const root = document.createElement('div');
+    const view = renderLiveView(root, () => null, { onStop: () => {} });
+    const badge = root.querySelector<HTMLElement>('.perf-badge')!;
+    expect(badge.hidden).toBe(true);
+    view.setPerformanceMode(true);
+    expect(badge.hidden).toBe(false);
+    expect(badge.textContent).toBe('Performance mode');
+    view.setPerformanceMode(false);
+    expect(badge.hidden).toBe(true);
+  });
+
+  it('shows loading progress as a bar, indeterminate when the size is unknown, and hides it when done', () => {
+    const root = document.createElement('div');
+    const view = renderLiveView(root, () => null, { onStop: () => {} });
+    const bar = root.querySelector<HTMLProgressElement>('progress.live-progress')!;
+    expect(bar.hidden).toBe(true);
+    view.setProgress(0.42);
+    expect(bar.hidden).toBe(false);
+    expect(bar.value).toBeCloseTo(0.42);
+    view.setProgress(null);
+    expect(bar.hidden).toBe(false);
+    expect(bar.hasAttribute('value')).toBe(false);
+    view.setProgress(undefined);
+    expect(bar.hidden).toBe(true);
+  });
+});

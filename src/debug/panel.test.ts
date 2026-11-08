@@ -129,6 +129,16 @@ describe('debug panel', () => {
     expect(body.querySelector('.debug-slot-perf')).not.toBeNull();
   });
 
+  it('shows a performance-mode badge in its slot while one is set', () => {
+    const { body, panel } = setup();
+    const slot = body.querySelector('.debug-slot-perf')!;
+    expect(slot.textContent).toBe('');
+    panel.setPerformanceMode('Performance mode: every other frame');
+    expect(slot.querySelector('.perf-badge')?.textContent).toBe('Performance mode: every other frame');
+    panel.setPerformanceMode(null);
+    expect(slot.textContent).toBe('');
+  });
+
   it('destroy removes the panel, the key listener and the frame loop', () => {
     const { parent, frames, panel, body } = setup();
     panel.destroy();
