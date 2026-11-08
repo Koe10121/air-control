@@ -236,7 +236,7 @@ export function createBenchmarkMode(nav: Nav, deps: BenchmarkModeDeps): Mode {
       root.setAttribute('aria-label', 'Benchmark');
       const diameter = DEFAULT_BENCHMARK_CONFIG.targetRadius * 200;
       root.innerHTML = `
-        <div class="benchmark-target" style="width:${diameter}%" aria-hidden="true" hidden></div>
+        <div class="benchmark-target" aria-hidden="true" hidden></div>
         <div class="benchmark-hud" aria-live="off"></div>
         <div class="benchmark-panel">
           <h2 class="benchmark-panel-title">Benchmark</h2>
@@ -249,6 +249,8 @@ export function createBenchmarkMode(nav: Nav, deps: BenchmarkModeDeps): Mode {
           </div>
         </div>
       `;
+      // Sized through the CSSOM: the CSP blocks inline style attributes.
+      $('.benchmark-target').style.width = `${diameter}%`;
       $('.benchmark-start').addEventListener('click', start);
       $('.benchmark-copy').addEventListener('click', copy);
       el.append(root);

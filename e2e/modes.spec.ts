@@ -196,6 +196,8 @@ test('benchmark (hidden ?mode=benchmark): a mouse-only run hits all 20 targets a
   await expect(bench).toHaveAttribute('data-phase', 'running');
 
   const target = bench.locator('.benchmark-target');
+  // Sized via the CSSOM: the CSP blocks inline style attributes, which would leave it 0 px wide.
+  expect((await target.boundingBox())!.width).toBeGreaterThan(20);
   for (let i = 0; i < 20; i++) {
     await expect(bench).toHaveAttribute('data-index', String(i));
     const box = (await target.boundingBox())!;
