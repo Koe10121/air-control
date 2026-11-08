@@ -671,7 +671,7 @@ describe('createGestureEngine: pinching while moving fast', () => {
 });
 
 describe('createGestureEngine: draw-fast-2 fixture', () => {
-  it('fast drawing gives no accidental clicks and no jumps inside a stroke, except across tracking gaps', () => {
+  it('fast drawing gives no accidental clicks, no jumps inside a stroke except across tracking gaps, and the closing fist clears once', () => {
     const { frames } = parseFixture(JSON.parse(readFileSync('public/fixtures/draw-fast-2.json', 'utf8')));
     const engine = createGestureEngine(DEFAULT_GESTURE_CONFIG);
     const events: string[] = [];
@@ -696,6 +696,9 @@ describe('createGestureEngine: draw-fast-2 fixture', () => {
     }
     expect(events.filter((e) => e === 'click')).toEqual([]);
     expect(events.filter((e) => e === 'press').length).toBeGreaterThanOrEqual(6);
+    // The take ends with a deliberate fist: exactly one clear, and it is the last event.
+    expect(events.filter((e) => e === 'clear')).toHaveLength(1);
+    expect(events.at(-1)).toBe('clear');
     // Before dragSpeed, strokes began with jumps of up to 0.26. What is left is the unlock of a slow-start
     // press once the hand passes dragThreshold (0.08), plus one frame of movement.
     expect(jump).toBeLessThan(0.12);
