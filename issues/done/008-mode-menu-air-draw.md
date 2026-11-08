@@ -18,7 +18,7 @@ prd: §4.5 modes, §4.6 app, user stories 7, 15, 16
 - [x] TDD unit tests for `drawReduce` (strokes, colour change, clear) and for the router's mount/unmount.
 - [x] Playwright: the mouse alone can open Draw, draw a stroke, change colour, clear, and go back.
 - [x] `?mode=draw` opens Draw directly.
-- [ ] Manual check: drawing in the air with pinch-hold works.
+- [x] Manual check: drawing in the air with pinch-hold works.
 
 ## Notes (done)
 - `src/modes/modes.ts`: `Mode`, `createModeRouter`, `modeFromUrl`, the menu and a "coming soon" placeholder (Slides, Catch).
@@ -26,6 +26,6 @@ prd: §4.5 modes, §4.6 app, user stories 7, 15, 16
 - Input now maps keys `1`–`9` → `{ type: 'select', index }` and `C` → `clear` (ignored with Ctrl/Meta/Alt).
 - `?mode=` is applied after the visitor starts (camera, mouse or demo); the camera is still never requested on load.
   The address bar's `?mode=` follows the open mode.
-- Manual check (drawing in the air with pinch-hold) still to do with a live camera.
+- Manual check passed with a live camera (after the pinch-drag fix).
 - Fix after first manual try: the hand only drew dots because the cursor stayed locked for the whole pinch.
   Gestures now have a `dragThreshold` (0.08 screen): past it the cursor follows the hand and release gives no click.
