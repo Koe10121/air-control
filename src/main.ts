@@ -5,6 +5,7 @@ import { renderLiveView, renderMouseStage } from './app/overlay';
 import { createDebugPanel } from './debug/panel';
 import { createGestureEngine, DEFAULT_GESTURE_CONFIG } from './gestures/gestures';
 import { createInput, type Input } from './input/input';
+import { createBenchmarkMode } from './modes/benchmark';
 import { createCatchMode } from './modes/catch';
 import { createDrawMode } from './modes/draw';
 import { createSlidesMode } from './modes/slides';
@@ -29,6 +30,8 @@ function showLanding() {
 
 /** Every tracked frame of the running tracker, for modes that read landmarks directly (the recorder). */
 const frameListeners = new Set<(frame: HandFrame | null) => void>();
+/** The pose classifier behind the hand cursor, for the benchmark's results (null on the mouse stage). */
+let activeClassifier: string | null = null;
 
 const MODES: Record<string, ModeFactory> = {
   menu: createMenuMode,
@@ -43,6 +46,8 @@ const MODES: Record<string, ModeFactory> = {
         return () => frameListeners.delete(cb);
       },
     }),
+  // Hidden: only reachable by ?mode=benchmark.
+  benchmark: (nav) => createBenchmarkMode(nav, { classifier: () => activeClassifier }),
 };
 
 /**
@@ -88,6 +93,7 @@ function showMouseStage() {
     },
   });
   const input = createInput(stage);
+  activeClassifier = null;
   const stopModes = startModes(layer, input);
   teardown = () => {
     stopModes();
@@ -114,6 +120,7 @@ function runTracker(tracker: Tracker, stopLabel: string) {
   });
   const input = createInput(view.stage);
   const gestures = createGestureEngine(DEFAULT_GESTURE_CONFIG);
+  activeClassifier = 'rules';
   // Swipes are only listened for while Slides is open, so a fast hand elsewhere never pages anything.
   const stopModes = startModes(view.layer, input, (name) => gestures.setSwipes(name === 'slides'));
   const debug = createDebugPanel(view.stage);

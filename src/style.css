@@ -340,7 +340,8 @@ body {
 }
 
 /* Catch */
-.catch-mode {
+.catch-mode,
+.benchmark-mode {
   position: absolute;
   inset: 0;
   background: rgba(14, 17, 22, 0.35);
@@ -352,7 +353,8 @@ body {
   height: 100%;
 }
 
-.catch-hud {
+.catch-hud,
+.benchmark-hud {
   position: absolute;
   top: 0.75rem;
   left: 50%;
@@ -371,7 +373,8 @@ body {
   color: var(--muted);
 }
 
-.catch-panel {
+.catch-panel,
+.benchmark-panel {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -384,20 +387,24 @@ body {
   text-align: center;
 }
 
-.catch-panel[hidden] {
+.catch-panel[hidden],
+.benchmark-panel[hidden] {
   display: none;
 }
 
-.catch-panel h2 {
+.catch-panel h2,
+.benchmark-panel h2 {
   margin: 0 0 0.5rem;
   color: var(--accent);
 }
 
-.catch-panel p {
+.catch-panel p,
+.benchmark-panel p {
   margin: 0 0 1rem;
 }
 
-.catch-start {
+.catch-start,
+.benchmark-actions button {
   min-width: 9rem;
   min-height: 3.25rem;
   padding: 0.75rem 2rem;
@@ -411,9 +418,50 @@ body {
   cursor: pointer;
 }
 
-.catch-start:focus-visible {
+.catch-start:focus-visible,
+.benchmark-actions button:focus-visible {
   outline: 3px solid var(--fg);
   outline-offset: 3px;
+}
+
+/* Benchmark (hidden, ?mode=benchmark) */
+.benchmark-target {
+  position: absolute;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 18%, #ff6b6b 19% 45%, #fff 46% 58%, #ff6b6b 59%);
+  pointer-events: none;
+}
+
+.benchmark-target[hidden],
+.benchmark-json[hidden],
+.benchmark-actions button[hidden] {
+  display: none;
+}
+
+.benchmark-json {
+  width: 100%;
+  margin: 0 0 1rem;
+  font: 0.8rem/1.4 ui-monospace, monospace;
+  color: var(--fg);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--muted);
+  border-radius: 0.5rem;
+  resize: vertical;
+}
+
+.benchmark-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.benchmark-actions .benchmark-copy {
+  color: var(--fg);
+  background: transparent;
+  border: 2px solid var(--muted);
 }
 
 /* Air Draw */

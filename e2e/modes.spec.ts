@@ -187,3 +187,26 @@ test('the recorder is not on the mode menu', async ({ page }) => {
   await expect(page.locator('.mode-button')).toHaveCount(3);
   await expect(page.locator('.mode-button[data-mode="record"]')).toHaveCount(0);
 });
+
+test('benchmark (hidden ?mode=benchmark): a mouse-only run hits all 20 targets at 100% and offers the JSON', async ({ page }) => {
+  await openMouseStage(page, '/?mode=benchmark');
+  const bench = page.getByRole('region', { name: 'Benchmark' });
+  await expect(bench).toHaveAttribute('data-phase', 'ready');
+  await bench.getByRole('button', { name: 'Start' }).click();
+  await expect(bench).toHaveAttribute('data-phase', 'running');
+
+  const target = bench.locator('.benchmark-target');
+  for (let i = 0; i < 20; i++) {
+    await expect(bench).toHaveAttribute('data-index', String(i));
+    const box = (await target.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  }
+  await expect(bench).toHaveAttribute('data-phase', 'done');
+  await expect(bench).toHaveAttribute('data-success-rate', '1');
+  await expect(bench.getByRole('heading', { name: 'Results' })).toBeVisible();
+  await expect(bench).toContainText('100% success');
+  const result = JSON.parse(await bench.getByRole('textbox', { name: 'Results JSON' }).inputValue());
+  expect(result).toMatchObject({ benchmark: 'targets-v1', targets: 20, hits: 20, misses: 0, successRate: 1, input: 'mouse', classifier: null });
+  await expect(bench.getByRole('button', { name: 'Copy JSON' })).toBeVisible();
+  await expect(page.locator('.mode-button[data-mode="benchmark"]')).toHaveCount(0);
+});
