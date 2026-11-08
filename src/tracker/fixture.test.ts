@@ -34,6 +34,15 @@ describe('createTracker({ fixture })', () => {
     tracker.stop();
   });
 
+  it('reports zero detect time, since a recording runs no model', async () => {
+    const tracker = createTracker({ fixture });
+    const infos: unknown[] = [];
+    tracker.onFrame((_f, info) => infos.push(info));
+    await tracker.start();
+    expect(infos).toEqual([{ detectMs: 0 }]);
+    tracker.stop();
+  });
+
   it('replays frames with their recorded spacing', async () => {
     const tracker = createTracker({ fixture });
     const seen: number[] = [];

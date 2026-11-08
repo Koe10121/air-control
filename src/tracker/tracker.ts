@@ -21,6 +21,14 @@ export interface HandFrame {
 
 export type Delegate = 'GPU' | 'CPU';
 
+/** Per-frame measurements that come with each frame, for the debug panel. */
+export interface FrameInfo {
+  /** Time spent in the hand landmarker (0 for recordings). */
+  detectMs: number;
+}
+
+export type FrameListener = (frame: HandFrame | null, info: FrameInfo) => void;
+
 export type TrackerStatus =
   | { state: 'loading-model' }
   | { state: 'starting-camera' }
@@ -89,7 +97,7 @@ export interface Tracker {
   /** Stops the camera and the detection loop. */
   stop(): void;
   /** Called once per processed video frame, with null when no hand is visible. Returns an unsubscribe. */
-  onFrame(cb: (frame: HandFrame | null) => void): () => void;
+  onFrame(cb: FrameListener): () => void;
   onStatus(cb: (status: TrackerStatus) => void): () => void;
   /** The live camera video, once started (null before start and for non-camera sources). */
   readonly video: HTMLVideoElement | null;
@@ -139,7 +147,7 @@ export function createTracker(source: TrackerSource): Tracker {
 }
 
 function createCameraTracker(): Tracker {
-  const frameListeners = new Set<(frame: HandFrame | null) => void>();
+  const frameListeners = new Set<FrameListener>();
   const statusListeners = new Set<(status: TrackerStatus) => void>();
   let video: HTMLVideoElement | null = null;
   let stream: MediaStream | null = null;
@@ -161,8 +169,11 @@ function createCameraTracker(): Tracker {
       // MediaPipe requires strictly increasing timestamps.
       const timestamp = Math.max(performance.now(), lastTimestamp + 1);
       lastTimestamp = timestamp;
-      const frame = toHandFrame(landmarker.detectForVideo(video, timestamp), timestamp);
-      frameListeners.forEach((cb) => cb(frame));
+      const detectStart = performance.now();
+      const result = landmarker.detectForVideo(video, timestamp);
+      const info: FrameInfo = { detectMs: performance.now() - detectStart };
+      const frame = toHandFrame(result, timestamp);
+      frameListeners.forEach((cb) => cb(frame, info));
     }
     rafId = requestAnimationFrame(loop);
   };

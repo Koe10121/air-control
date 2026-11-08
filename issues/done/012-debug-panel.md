@@ -11,6 +11,6 @@ prd: §4.7 debug, user story 17
 - Leave a slot for the rules/model toggle (added in 020) and the performance-mode badge (added in 014).
 
 ## Acceptance criteria
-- [ ] TDD unit tests for the rolling window, p50/p95 and the FPS calculation.
+- [x] TDD unit tests for the rolling window, p50/p95 and the FPS calculation.
 - [ ] Manual check: the panel shows live numbers, and the pose label changes as the hand changes.
-- [ ] No DOM writes while the panel is collapsed.
+- [x] No DOM writes while the panel is collapsed.

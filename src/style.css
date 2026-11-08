@@ -231,3 +231,51 @@ body {
 .mouse-stage {
   background: #161b22;
 }
+
+/* Debug panel (D key): bottom-left; the body opens upward, above its button. */
+.debug-panel {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  z-index: 5;
+  max-width: calc(100% - 1.5rem);
+  font: 500 0.8rem/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.debug-toggle {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  background: rgba(14, 17, 22, 0.8);
+}
+
+.debug-body {
+  margin-bottom: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.5rem;
+  background: rgba(14, 17, 22, 0.85);
+  color: #e8ecf1;
+}
+
+.debug-body[hidden] {
+  display: none;
+}
+
+.debug-body dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.15rem 1rem;
+  margin: 0;
+}
+
+.debug-body dt {
+  color: #9aa4b2;
+}
+
+.debug-body dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

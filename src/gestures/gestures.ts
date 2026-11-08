@@ -20,6 +20,8 @@ export interface GestureOutput {
   /** Normalised screen position (0..1, mirrored like the video), or null when no hand is visible. */
   cursor: Cursor | null;
   pose: Pose;
+  /** The classifier's confidence in `pose` (0 when no hand is visible). */
+  confidence: number;
   events: GestureEvent[];
   /** How closed the pinch is, for the cursor ring: 0 = open hand, 1 = pressed. */
   pinch: number;
@@ -102,7 +104,7 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
         closedFrames = 0;
         locked = null;
         history = [];
-        return { cursor: null, pose: 'none', events, pinch: 0, pressed: false };
+        return { cursor: null, pose: 'none', confidence: 0, events, pinch: 0, pressed: false };
       }
 
       const t = frame.timestamp;
@@ -113,7 +115,7 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
       history.push({ t, cursor: smoothed });
       while (history.length > 1 && history[0]!.t < t - HISTORY_MS) history.shift();
 
-      const pose = classifier(frame.landmarks, frame.handedness).label;
+      const { label: pose, confidence } = classifier(frame.landmarks, frame.handedness);
       const ratio = pinchRatio(frame.landmarks);
       const events: GestureEvent[] = [];
 
@@ -125,7 +127,7 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
           locked = null;
           closedFrames = 0;
           lastClick = t;
-          return { cursor, pose, events, pinch: pinchProgress(ratio), pressed: false };
+          return { cursor, pose, confidence, events, pinch: pinchProgress(ratio), pressed: false };
         }
       } else if (ratio < config.pinchClose && pose === 'pinch' && t - lastClick >= config.clickCooldownMs) {
         if (closedFrames === 0) closeStart = t;
@@ -142,6 +144,7 @@ export function createGestureEngine(config: GestureConfig, classifier: Classifie
       return {
         cursor: locked ?? smoothed,
         pose,
+        confidence,
         events,
         pinch: pressed ? 1 : pinchProgress(ratio),
         pressed,

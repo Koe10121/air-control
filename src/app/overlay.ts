@@ -1,5 +1,6 @@
 // Live view: mirrored webcam video with the hand skeleton and a tracking-FPS counter on top.
 // Without a video (fixture playback) the skeleton is drawn over a neutral background.
+import { createFpsCounter } from '../debug/stats';
 import { VIDEO_HEIGHT, VIDEO_WIDTH, type HandFrame, type Landmark } from '../tracker/tracker';
 
 /** Bones between MediaPipe's 21 hand landmarks (wrist = 0, thumb 1–4, index 5–8, … pinky 17–20). */
@@ -19,22 +20,6 @@ export function toCanvasPoint(
   mirror: boolean,
 ): { x: number; y: number } {
   return { x: (mirror ? 1 - p.x : p.x) * width, y: p.y * height };
-}
-
-/** Frames per second over a sliding 1 s window of frame timestamps (ms). */
-export function createFpsCounter(windowMs = 1000) {
-  const times: number[] = [];
-  return {
-    tick(timestamp: number) {
-      times.push(timestamp);
-      while (times.length > 0 && times[0]! < timestamp - windowMs) times.shift();
-    },
-    value(): number {
-      if (times.length < 2) return 0;
-      const span = times[times.length - 1]! - times[0]!;
-      return span > 0 ? ((times.length - 1) * 1000) / span : 0;
-    },
-  };
 }
 
 export interface LiveView {

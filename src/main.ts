@@ -2,6 +2,7 @@ import './style.css';
 import { renderErrorScreen } from './app/error-screen';
 import { renderLanding } from './app/landing';
 import { renderLiveView, renderMouseStage } from './app/overlay';
+import { createDebugPanel } from './debug/panel';
 import { createGestureEngine, DEFAULT_GESTURE_CONFIG } from './gestures/gestures';
 import { createInput } from './input/input';
 import { createFrameRecorder, fixtureNameFromUrl, loadFixture } from './tracker/fixture';
@@ -43,22 +44,37 @@ function runTracker(tracker: Tracker, stopLabel: string) {
     },
   });
   const input = createInput(view.stage);
+  const debug = createDebugPanel(view.stage);
+  const teardown = () => {
+    input.destroy();
+    debug.destroy();
+  };
   tracker.onStatus((status) => {
-    if (status.state === 'stopped' || status.state === 'error') input.destroy();
+    if (status.state === 'stopped' || status.state === 'error') teardown();
     if (status.state === 'starting-camera') view.setStatus('Waiting for camera permission…');
     else if (status.state === 'loading-model') view.setStatus('Loading hand model…');
-    else if (status.state === 'running') view.setStatus('');
+    else if (status.state === 'running') {
+      view.setStatus('');
+      const v = tracker.video;
+      debug.setTrackerStatus(
+        status.delegate === 'fixture' ? 'Recording (no model)' : `${status.delegate} · ${v?.videoWidth ?? 0}×${v?.videoHeight ?? 0}`,
+      );
+    } else if (status.state === 'paused') debug.setTrackerStatus('Paused (tab hidden)');
     else if (status.state === 'error') showError(status.error.kind);
   });
   const gestures = createGestureEngine(DEFAULT_GESTURE_CONFIG);
-  tracker.onFrame((frame) => {
+  tracker.onFrame((frame, { detectMs }) => {
     view.draw(frame);
+    const gestureStart = performance.now();
     const out = gestures.update(frame);
+    const gestureMs = performance.now() - gestureStart;
+    debug.record({ detectMs, gestureMs, pose: out.pose, confidence: out.confidence, timestamp: frame?.timestamp ?? performance.now() });
     view.setCursor(out.cursor);
     view.setPinch(out.pinch, out.pressed);
     input.push(out);
   });
   tracker.start().catch((err: unknown) => {
+    teardown();
     console.error(err);
     showError(err instanceof TrackerError ? err.kind : 'model-load-failed');
   });

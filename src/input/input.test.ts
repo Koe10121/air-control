@@ -28,6 +28,7 @@ afterEach(() => inputs.splice(0).forEach((i) => i.destroy()));
 const gesture = (x: number | null, y: number, events: GestureEvent[] = []): GestureOutput => ({
   cursor: x === null ? null : { x, y },
   pose: 'point',
+  confidence: 1,
   events,
   pinch: 0,
   pressed: false,

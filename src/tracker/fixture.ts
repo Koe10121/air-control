@@ -1,5 +1,5 @@
 // Recorded landmark fixtures (PRD §4.1, §6): replay through the Tracker interface, parse, and capture.
-import type { HandFrame, Tracker, TrackerStatus } from './tracker';
+import type { FrameListener, HandFrame, Tracker, TrackerStatus } from './tracker';
 
 /** A recording of tracked hand frames with their original timestamps. */
 export interface Fixture {
@@ -14,7 +14,7 @@ export interface Fixture {
  * the camera tracker. Timestamps are re-based onto performance.now() so they keep increasing.
  */
 export function createFixtureTracker(fixture: Fixture): Tracker {
-  const frameListeners = new Set<(frame: HandFrame | null) => void>();
+  const frameListeners = new Set<FrameListener>();
   const statusListeners = new Set<(status: TrackerStatus) => void>();
   const frames = fixture.frames;
   const loopGap = 1000 / fixture.fps;
@@ -28,7 +28,7 @@ export function createFixtureTracker(fixture: Fixture): Tracker {
     const first = frames[0]!;
     const frame = frames[i]!;
     const out: HandFrame = { ...frame, timestamp: passStart + (frame.timestamp - first.timestamp) };
-    frameListeners.forEach((cb) => cb(out));
+    frameListeners.forEach((cb) => cb(out, { detectMs: 0 }));
 
     const next = frames[i + 1];
     if (next) {

@@ -51,3 +51,24 @@ test('a failure screen offers "Use mouse instead" and "Watch a demo", and the de
   await page.getByRole('button', { name: 'Stop demo' }).click();
   await expect(page.getByRole('button', { name: /try it/i })).toBeVisible();
 });
+
+test('the D key opens a debug panel with live numbers and the current pose', async ({ page }) => {
+  await stubCamera(page, { deny: false });
+  await page.goto('/?source=fixture:pinch-twice');
+  const toggle = page.getByRole('button', { name: 'Debug' });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await page.keyboard.press('d');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  const field = (name: string) => page.locator(`.debug-body [data-field="${name}"]`);
+  await expect.poll(async () => Number(await field('tracking-fps').textContent())).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await field('render-fps').textContent())).toBeGreaterThan(0);
+  await expect(field('tracker')).toHaveText('Recording (no model)');
+  const poses = new Set<string>();
+  await expect
+    .poll(async () => (poses.add((await field('pose').textContent()) ?? ''), poses.has('point') && poses.has('pinch')), {
+      timeout: 15000,
+    })
+    .toBe(true);
+  await toggle.click();
+  await expect(page.locator('.debug-body')).toBeHidden();
+});

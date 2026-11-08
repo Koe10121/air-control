@@ -43,6 +43,11 @@ describe('createGestureEngine: cursor mapping', () => {
     expect(createGestureEngine(raw).update(tipAt(0, 1, 0)).cursor).toEqual({ x: 1, y: 1 });
   });
 
+  it('passes the classifier pose and confidence through (for the debug panel)', () => {
+    const engine = createGestureEngine(raw, () => ({ label: 'fist', confidence: 0.42 }));
+    expect(engine.update(tipAt(0.5, 0.5, 0))).toMatchObject({ pose: 'fist', confidence: 0.42 });
+  });
+
   it('respects a configured active region', () => {
     const full = createGestureEngine({ ...raw, activeRegion: 1 });
     const c = full.update(tipAt(0.1, 0.9, 0)).cursor!;
@@ -64,7 +69,7 @@ describe('createGestureEngine: smoothing and hand loss', () => {
   it('a null frame gives a null cursor, no pose and no events', () => {
     const engine = createGestureEngine(DEFAULT_GESTURE_CONFIG);
     engine.update(tipAt(0.5, 0.5, 0));
-    expect(engine.update(null)).toEqual({ cursor: null, pose: 'none', events: [], pinch: 0, pressed: false });
+    expect(engine.update(null)).toEqual({ cursor: null, pose: 'none', confidence: 0, events: [], pinch: 0, pressed: false });
   });
 
   it('resets on hand loss: the first frame after a null is not smoothed toward the old position', () => {
@@ -250,7 +255,7 @@ describe('createGestureEngine: hand lost mid-pinch', () => {
   it('releases without a click, and the next hand starts fresh', () => {
     const f = feeder();
     [OPEN, CLOSED, CLOSED, CLOSED].forEach((r) => f.step(r));
-    expect(f.lose()).toEqual({ cursor: null, pose: 'none', events: ['release'], pinch: 0, pressed: false });
+    expect(f.lose()).toEqual({ cursor: null, pose: 'none', confidence: 0, events: ['release'], pinch: 0, pressed: false });
     expect(f.lose().events).toEqual([]);
     // Coming back already pinched must be confirmed again from scratch.
     expect([CLOSED, CLOSED].flatMap((r) => f.step(r).events)).toEqual([]);
