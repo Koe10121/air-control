@@ -750,3 +750,98 @@ body {
 .record-countdown.live {
   box-shadow: inset 0 0 0 4px #ff6b6b;
 }
+
+/* Onboarding (first camera start) */
+.onboarding {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.onboarding-panel,
+.onboarding-button {
+  pointer-events: auto;
+}
+
+.onboarding-panel {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(22rem, calc(100% - 2rem));
+  padding: 1rem 1.25rem;
+  border-radius: 1.25rem;
+  border: 2px solid var(--muted);
+  background: rgba(14, 17, 22, 0.9);
+}
+
+.onboarding-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+.onboarding-steps {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
+  color: var(--muted);
+}
+
+.onboarding-steps li.current {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.onboarding-steps li.done {
+  color: var(--accent);
+}
+
+.onboarding-tick {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  font-size: 0.9rem;
+}
+
+.onboarding-target {
+  position: absolute;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 4px dashed var(--accent);
+  pointer-events: none;
+}
+
+.onboarding-button {
+  position: absolute;
+  left: 35%;
+  top: 60%;
+  transform: translate(-50%, -50%);
+  min-width: 10rem;
+  min-height: 4rem;
+  padding: 1rem 2rem;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--accent-fg);
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.onboarding-target[hidden],
+.onboarding-button[hidden] {
+  display: none;
+}

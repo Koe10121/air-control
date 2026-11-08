@@ -14,6 +14,6 @@ prd: §4.6 app, user story 6
 - The step logic is a pure reducer.
 
 ## Acceptance criteria
-- [ ] TDD unit tests for the step reducer.
-- [ ] Playwright: Skip works, and the overlay doesn't reappear after a reload.
+- [x] TDD unit tests for the step reducer.
+- [x] Playwright: Skip works, and the overlay doesn't reappear after a reload.
 - [ ] Manual check: a first-time user gets through it in under 10 s.

@@ -49,7 +49,8 @@ test('with a fake camera, the MediaPipe model loads and runs under the CSP, from
   // a failure would replace the live view with an error screen instead.
   await expect(page.getByRole('status')).toBeHidden({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Stop camera' })).toBeVisible();
-  await expect(page.getByRole('heading')).toHaveCount(0);
+  // No error screen: the only heading is the first-start onboarding's.
+  await expect(page.getByRole('heading')).toHaveText(['Getting started']);
 
   expect(seen.external).toEqual([]);
   expect(seen.violations).toEqual([]);

@@ -1,6 +1,7 @@
 import './style.css';
 import { renderErrorScreen } from './app/error-screen';
 import { renderLanding } from './app/landing';
+import { createOnboardingMode, localStore, shouldShowOnboarding } from './app/onboarding';
 import { renderLiveView, renderMouseStage } from './app/overlay';
 import { createDebugPanel } from './debug/panel';
 import { createGestureEngine, DEFAULT_GESTURE_CONFIG } from './gestures/gestures';
@@ -64,26 +65,40 @@ const MODES: Record<string, ModeFactory> = {
     }),
   // Hidden: only reachable by ?mode=benchmark.
   benchmark: (nav) => createBenchmarkMode(nav, { classifier: () => activeClassifier }),
+  // Shown instead of the menu on a first camera start (never by URL: it is kept out of ?mode=).
+  onboarding: (nav) =>
+    createOnboardingMode(nav, {
+      subscribe(cb) {
+        const listener = (frame: HandFrame | null) => cb(frame !== null);
+        frameListeners.add(listener);
+        return () => frameListeners.delete(listener);
+      },
+      storage: localStore(),
+    }),
 };
 
 /**
  * Opens the `?mode=` deep link (or the menu) in `layer`, feeds it input actions and animation ticks,
  * and keeps `?mode=` in the address bar in step. `onModeChange` hears every mode switch.
- * Returns a teardown.
+ * With no deep link, `firstMode` (default: the menu) opens. Returns a teardown.
  */
-function startModes(layer: HTMLElement, input: Input, onModeChange?: (name: string) => void): () => void {
+function startModes(
+  layer: HTMLElement,
+  input: Input,
+  { onModeChange, firstMode = 'menu' }: { onModeChange?: (name: string) => void; firstMode?: string } = {},
+): () => void {
   const router = createModeRouter(layer, MODES, {
     onChange(name) {
       onModeChange?.(name);
       const params = new URLSearchParams(location.search);
-      if (name === 'menu') params.delete('mode');
+      if (name === 'menu' || name === 'onboarding') params.delete('mode');
       else params.set('mode', name);
       const query = params.toString();
       history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
     },
   });
   const wanted = modeFromUrl(location.search);
-  if (!wanted || !router.open(wanted)) router.open('menu');
+  if (!wanted || wanted === 'onboarding' || !router.open(wanted)) router.open(firstMode);
   const unsubscribe = input.onAction((action) => router.handle(action));
   let raf = 0;
   let last = performance.now();
@@ -126,7 +141,7 @@ function showError(kind: TrackerErrorKind) {
 }
 
 /** Shows the live view for `tracker` and starts it. */
-function runTracker(tracker: Tracker, stopLabel: string) {
+function runTracker(tracker: Tracker, stopLabel: string, { onboarding = false } = {}) {
   const view = renderLiveView(app, () => tracker.video, {
     stopLabel,
     onStop: () => {
@@ -138,7 +153,10 @@ function runTracker(tracker: Tracker, stopLabel: string) {
   const gestures = createGestureEngine(DEFAULT_GESTURE_CONFIG);
   activeClassifier = 'rules';
   // Swipes are only listened for while Slides is open, so a fast hand elsewhere never pages anything.
-  const stopModes = startModes(view.layer, input, (name) => gestures.setSwipes(name === 'slides'));
+  const stopModes = startModes(view.layer, input, {
+    onModeChange: (name) => gestures.setSwipes(name === 'slides'),
+    firstMode: onboarding ? 'onboarding' : 'menu',
+  });
   const debug = createDebugPanel(view.stage);
   let tornDown = false;
   const teardown = () => {
@@ -191,7 +209,9 @@ function runTracker(tracker: Tracker, stopLabel: string) {
 function startCamera() {
   const tracker = createTracker('camera');
   if (devTools) enableCaptureHotkey(tracker);
-  runTracker(tracker, 'Stop camera');
+  // First-time visitors get the 3-step onboarding; deep links land straight in their mode.
+  const onboarding = shouldShowOnboarding({ search: location.search, camera: true, storage: localStore() });
+  runTracker(tracker, 'Stop camera', { onboarding });
 }
 
 /** Plays a recorded fixture through the same pipeline as the camera. No camera is touched. */
